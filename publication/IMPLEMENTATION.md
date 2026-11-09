@@ -97,7 +97,7 @@ repository, not estimated. Keep this table in sync if the pipeline changes.
 | Expression source | BrainSpan RNA-Seq, Gencode v10 RPKM, gene-summarised | `ETL.qmd`, `genes_matrix_csv/` |
 | Matrix dimensions | 52,376 genes × 524 samples | `wc -l genes_matrix_csv/{rows,columns}_metadata.csv` |
 | Transformation | `log2(RPKM + 1)`, duplicate symbols dropped | `preparaDados.R` |
-| Developmental windows | 5; n = 5, 10, 5, 8, 14 donors | `preparaDados.R` (`age_mapping`) |
+| Developmental windows | 5; n = 5, 10, 5, 14, 8 donors | `preparaDados.R` (`age_mapping`) |
 | Atlas regions (micro) | **41** | `n_distinct(mapeamento_regioes.csv$region)`, and `GET /data_brain?gene=SOX10` returns 41 regions × 5 windows = 169 rows. `ontologia_micro.rds` still says 42 — it is stale; see §5 |
 | Anatomical groups (macro) | 6 | `mapeamento_regioes.csv`, column `macro_regions` |
 | Views per map | 4 (DK lateral, DK medial, aseg sagittal, aseg coronal_1) | `plumber.R:build_brain_grid` |
