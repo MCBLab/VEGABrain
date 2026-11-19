@@ -2,9 +2,9 @@ name: Deploy front to GitHub Pages
 
 on:
   push:
-    # Trocar para main depois que a VEGAbrain for mergeada: o Pages publica um
-    # unico site por repositorio, entao duas branches aqui brigariam entre si.
-    branches: [VEGAbrain]
+    # So a main: o Pages publica um unico site por repositorio, entao duas
+    # branches aqui brigariam entre si.
+    branches: [main]
     paths:
       - 'front/**'
       - '.github/workflows/pages.yml'

@@ -1,4 +1,6 @@
-# Gene Expression in Human Developmental Brain
+# VEGABrain — Gene Expression in Human Developmental Brain
+
+**Live tool:** <https://mcblab.github.io/VEGABrain/> (React front on GitHub Pages, Plumber API on Google Cloud Run).
 
 A Shiny web application for visualizing gene expression throughout the development of the human brain. This tool leverages the **BrainSpan Atlas of the Developing Human Brain** dataset and provides a spatial interface using the `ggseg` package to map expression levels onto the Desikan-Killiany (DK) atlas.
 

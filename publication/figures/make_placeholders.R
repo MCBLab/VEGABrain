@@ -12,7 +12,7 @@ specs <- list(
        title = "Figure 2 -- VEGABrain web interface",
        body  = c("Screenshots: the three query modes (gene list / single gene / ontology),",
                  "the micro-macro region toggle and the reference-map modal.",
-                 "Source: screen capture of https://mcblab.github.io/BrainMap/")),
+                 "Source: screen capture of https://mcblab.github.io/VEGABrain/")),
   list(file = "fig3_gene_sox10.pdf", w = 9, h = 7,
        title = "Figure 3 -- Single-gene expression map (SOX10)",
        body  = c("DK lateral / DK medial / aseg sagittal / aseg coronal,",

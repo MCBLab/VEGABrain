@@ -107,7 +107,7 @@ repository, not estimated. Keep this table in sync if the pipeline changes.
 | Sample-level scores before aggregation | ≈9.8 M | 18,650 × 524 |
 | Cloud Run config | 4 GiB, 2 vCPU, concurrency 4, timeout 900 s, min-instances 0 | `deploy.sh` |
 | Cold start | 24.8 s | timed `GET /list_ontologies` against the live API |
-| Live front end | <https://mcblab.github.io/BrainMap/> | `.github/workflows/pages.yml` |
+| Live front end | <https://mcblab.github.io/VEGABrain/> | `.github/workflows/pages.yml` |
 | Live API | <https://brainmap-api-5kofy56taq-rj.a.run.app> | extracted from the deployed JS bundle |
 
 Regenerate the gene-set breakdown with:
@@ -303,10 +303,10 @@ Everything below is deliberately unfinished in the current draft.
 
 ### Repository
 
-- [ ] Choose and add a licence to `MCBLab/BrainMap` — a software paper needs one.
+- [ ] Choose and add a licence to `MCBLab/VEGABrain` — a software paper needs one.
 - [ ] Archive the release on Zenodo and cite the DOI in *Code availability*.
-- [ ] Merge `VEGAbrain` into `main` and repoint `.github/workflows/pages.yml`
-      (its comment already notes this).
+- [x] Merge `VEGAbrain` into `main` and repoint `.github/workflows/pages.yml`
+      (done 2026-11-19, together with the rename `BrainMap` → `VEGABrain`).
 
 ### Before submission
 
