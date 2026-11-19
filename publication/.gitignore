@@ -8,3 +8,6 @@ main.spl
 main.fls
 main.fdb_latexmk
 *.synctex.gz
+
+# Offline vector renders from figures/make_figures.R (not part of the paper)
+figures/offline/

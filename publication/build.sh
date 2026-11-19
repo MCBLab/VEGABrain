@@ -24,6 +24,13 @@ command -v pdflatex >/dev/null 2>&1 || {
   exit 1
 }
 
+# Fig. 1 is TikZ compiled to its own PDF (Springer takes figures as separate
+# files); rebuild it only when its source changed. Figs. 2-4 come from the API
+# via figures/export_figures.sh.
+if [ figures/fig1_architecture.tex -nt figures/fig1_architecture.pdf ]; then
+  (cd figures && Rscript -e 'tinytex::latexmk("fig1_architecture.tex", engine = "pdflatex", clean = TRUE)')
+fi
+
 # clean = FALSE keeps main.log / main.blg so the build can be checked for
 # undefined citations and references (see the verification notes in
 # IMPLEMENTATION.md). "bash build.sh clean" removes them.

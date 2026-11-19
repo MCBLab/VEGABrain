@@ -1,0 +1,54 @@
+%% Figure 1 -- VEGABrain data flow.
+%% Standalone so the figure exists as its own file for submission; main.tex
+%% includes the compiled fig1_architecture.pdf. Built by ../build.sh and by
+%% export_figures.sh.
+\documentclass[10pt,border=2pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+%% sn-jnl sets \scriptsize to 9pt (article: 7pt); match it so the boxes and
+%% text keep the size they had when the figure was drawn inline in main.tex.
+\makeatletter
+\renewcommand\scriptsize{\@setfontsize\scriptsize\@ixpt\@ixpt}
+\makeatother
+
+\begin{document}
+\begin{tikzpicture}[
+  box/.style   = {draw, rounded corners=2pt, align=center, inner sep=3pt,
+                  font=\scriptsize, minimum height=9mm, text width=27mm},
+  data/.style  = {box, fill=black!5},
+  proc/.style  = {box, fill=black!12},
+  serve/.style = {box, fill=black!8},
+  arr/.style   = {-{Stealth[length=1.8mm]}, semithick},
+  lab/.style   = {font=\scriptsize, inner sep=1.5pt},
+  band/.style  = {font=\scriptsize\itshape, text=black!55, anchor=west}
+]
+%% ---- offline band -------------------------------------------------
+\node[data] (ms) {MSigDB via \texttt{msigdbr}\\18{,}650 gene sets};
+\node[data, above=3mm of ms] (bs) {BrainSpan RNA-seq\\52{,}376 $\times$ 524};
+\node[data, below=3mm of ms] (mp) {region mapping\\(structure $\rightarrow$ atlas)};
+
+\node[proc, right=13mm of ms] (prep)
+  {Preprocessing\\$\log_2(\mathrm{RPKM}{+}1)$,\\age bins, ssGSEA};
+\node[data, right=13mm of prep] (rds)
+  {Precomputed scores\\set $\times$ window $\times$ region};
+
+\draw[arr] (bs.east) -- (prep.west);
+\draw[arr] (ms.east) -- (prep.west);
+\draw[arr] (mp.east) -- (prep.west);
+\draw[arr] (prep) -- (rds);
+
+%% ---- online band --------------------------------------------------
+\node[serve, below=26mm of prep] (map)
+  {Rendered map\\SVG figure $+$ CSV table};
+\node[serve, left=12mm of map]  (user) {User query\\gene, ontology term\\or gene list};
+\node[serve, right=14mm of map] (ondemand) {On-demand ssGSEA\\for user gene lists};
+
+\draw[arr] (rds.south) -- node[lab, right] {ontology term} (rds.south|-map.north);
+\draw[arr] (user) -- (map);
+\draw[arr] (ondemand) -- node[lab, above] {gene list} (map);
+
+\node[band] at ([yshift=6mm,xshift=-1mm]bs.north west) {offline, once};
+\node[band] at ([yshift=6mm,xshift=-1mm]user.north west) {per request};
+\end{tikzpicture}
+\end{document}

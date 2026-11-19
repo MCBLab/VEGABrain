@@ -14,8 +14,8 @@ placeholder, and how to build the PDF.
   the journal's own statement of the bar for software papers).
 - **Working title:** VEGABrain: a Visualizer of Enriched Gene Analysis for the
   developing human brain
-- **Status:** full text drafted; figures 3, 4 and 5 are real, figure 2 is still
-  a placeholder, and most measured values in Section 4 are still marked
+- **Status:** full text drafted; all four figures are real (the interface
+  screenshot was dropped on 2026-09-14), and most measured values in Section 4 are still marked
   `[TODO]`. See [Second pass](#second-pass).
 
 ---
@@ -33,9 +33,12 @@ publication/
 ├── bst/                      the other eight SN styles, unused
 ├── template/                 pristine unpacked template, incl. user-manual.pdf
 ├── figures/
-│   ├── make_placeholders.R   generates the placeholder PDFs currently in use
-│   ├── make_figures.R        generates Figs. 3-5 (needs pinned ggseg)
-│   └── fig{2,3,4,5}*.pdf     3, 4 and 5 real; 2 a placeholder
+│   ├── export_figures.sh     regenerates fig1-fig4, numbered as in the PDF
+│   ├── fig1_architecture.tex Fig. 1 TikZ source -> fig1_architecture.pdf
+│   ├── fig{2,3,4}_*.png      Figs. 2-4, the API's own PNG maps
+│   └── make_figures.R        offline vector mirror of Figs. 2-4 (pinned ggseg)
+├── supplementary/
+│   └── S1_region_mapping.csv   Supplementary File 1, the region mapping
 ├── references/               20 PDFs of cited works
 └── IMPLEMENTATION.md         this file
 ```
@@ -138,21 +141,36 @@ sort(table(sub("_.*", "", names(gs))), decreasing = TRUE)
 
 | Item | Label | State | Regenerate with |
 |---|---|---|---|
-| Fig. 1 Architecture | `fig:arch` | **real** — TikZ, inline in `main.tex` | rebuild |
-| Fig. 2 Interface | `fig:ui` | placeholder | screen capture of the live app |
-| Fig. 3 Single gene (*SOX10*) | `fig:gene` | **real** | `Rscript figures/make_figures.R fig3` |
-| Fig. 4 Ontology composite score | `fig:ontology` | **real** | `Rscript figures/make_figures.R fig4` |
-| Fig. 5 User gene list (FAS signature) | `fig:genelist` | **real** | `Rscript figures/make_figures.R fig5` |
+| Fig. 1 Architecture | `fig:arch` | **real** — TikZ, `figures/fig1_architecture.tex` | `build.sh` (when the `.tex` is newer) |
+| Fig. 2 Single gene (*SOX10*) | `fig:gene` | **real** | `figures/export_figures.sh` |
+| Fig. 3 Ontology composite score | `fig:ontology` | **real** | `figures/export_figures.sh` |
+| Fig. 4 User gene list (FAS signature) | `fig:genelist` | **real** | `figures/export_figures.sh` |
+| Supplementary File 1 | — | **real** — copy of the tool's `mapeamento_regioes.csv` | by hand (see below) |
 | Table 1 Data summary | `tab:data` | **real** | — |
 | Table 2 API endpoints | `tab:api` | **real** | `plumber.R` |
 | Table 3 Response times | `tab:perf` | cold start real, warm `[TODO]` | benchmark script (to write) |
 | Table 4 Tool comparison | `tab:compare` | **real** | — |
 
-`figures/make_figures.R` reproduces `plumber.R:build_brain_grid` exactly — the
-same four views, the same facetting, the same colour ramp — so the figures in the
-paper are the figures the tool serves. It writes PDF directly rather than
-converting the API's SVG, because no `rsvg-convert`/`inkscape`/ImageMagick is
-installed here. It needs `dados_otimizados.rds`, `ontologyssGSEA.csv` and
+Figure files are named by their number in the compiled PDF (`fig1_…` to
+`fig4_…`). Fig. 1 is TikZ compiled standalone, because Springer takes figures as
+separate files. Figs. 2-4 are the API's own `*_png` output (11 × 7 in, 150 dpi),
+downloaded by `figures/export_figures.sh`, so the paper shows exactly what the
+tool serves. Point it at an API built from the same tree:
+
+```bash
+docker compose up -d plumber-api
+API_URL=http://127.0.0.1:33857 bash figures/export_figures.sh
+```
+
+Supplementary File 1 is deliberately not refreshed by that script: the root
+`mapeamento_regioes.csv` is gitignored and can differ between machines, so the
+published copy in `supplementary/` is replaced by hand, from the copy the
+deployed image was built with.
+
+`figures/make_figures.R` redraws Figs. 2-4 offline as vector PDF in
+`figures/offline/` (gitignored), mirroring `plumber.R:build_brain_grid` — the
+same four views, facetting, colour ramp and legends. It is the cross-check
+behind the table below, and the source of vector versions if a journal asks. It needs `dados_otimizados.rds`, `ontologyssGSEA.csv` and
 `mapeamento_regioes.csv` in the repository root.
 
 **It must run against the ggseg versions `Dockerfile.api` pins**, not whatever is
@@ -169,11 +187,15 @@ Rscript -e '.libPaths(c("/tmp/vegabrain-rlib", .libPaths()))
                           lib = "/tmp/vegabrain-rlib", upgrade = "never")
   remotes::install_github("ggsegverse/ggseg", ref = "v2.1.1",
                           lib = "/tmp/vegabrain-rlib", upgrade = "never")'
-R_LIBS=/tmp/vegabrain-rlib Rscript figures/make_figures.R fig3 fig4
+R_LIBS=/tmp/vegabrain-rlib Rscript figures/make_figures.R fig2 fig3
 ```
 
+The API image already carries that pinned pair, so running the script inside it
+(`docker run … vegabrain-api Rscript make_figures.R`, with `figures/` mounted
+under `/api/publication/figures`) skips the install.
+
 The script rebuilds the sample-to-region mapping from `mapeamento_regioes.csv`
-rather than reading `col_meta$structure_mapped`, and aggregates Figure 4 from the
+rather than reading `col_meta$structure_mapped`, and aggregates Figure 3 from the
 sample-level `ontologyssGSEA.csv` rather than from `ontologia_micro.rds`. Both
 detours exist because the `.rds` objects in the repository root were built on
 2026-08-05, before the last mapping fix, and still carry two wrong parcels: one
@@ -187,17 +209,17 @@ generating them this way:
 
 | | cells vs `/data_*` | max \|Δ\| | Pearson *r* |
 |---|---|---|---|
-| Fig. 3 `/data_brain?gene=SOX10` | 169 / 169 | 4.6 × 10⁻² | 0.99998 |
-| Fig. 4 `/data_ontology?geneset=GOBP_FOREBRAIN_GENERATION_OF_NEURONS` | 169 / 169 | 0 | 1.0 |
-| Fig. 5 `POST /data_genelist` (the 13 FAS symbols) | 169 / 169 | 0 | 1.0 |
+| Fig. 2 `/data_brain?gene=SOX10` | 169 / 169 | 4.6 × 10⁻² | 0.99998 |
+| Fig. 3 `/data_ontology?geneset=GOBP_FOREBRAIN_GENERATION_OF_NEURONS` | 169 / 169 | 0 | 1.0 |
+| Fig. 4 `POST /data_genelist` (the 13 FAS symbols) | 169 / 169 | 0 | 1.0 |
 
-Figures 4 and 5 are exact. Figure 3's residual is not an error in the figure: the map
+Figures 3 and 4 are exact. Figure 2's residual is not an error in the figure: the map
 caps expression at 6 *before* averaging over samples (`grafico_gene`), while the
 CSV endpoint (`/data_brain`) applies no cap at all, so the two differ for any
 region holding a sample above 6. Section 3 of `main.tex` currently claims the
 opposite — see [Second pass](#second-pass).
 
-Figure 5's demonstration list is `FAS_DORSAL` in `make_figures.R`: the 13
+Figure 4's demonstration list is `FAS_DORSAL` in `make_figures.R`: the 13
 dorsal/glutamatergic specification genes that `Fischer2021` reports as
 upregulated by chronic intermittent ethanol in human pluripotent stem cells
 differentiated over 50 days to first-trimester-equivalent cortical neurons
@@ -212,10 +234,6 @@ five numbers are quoted in Section 4.2 of `main.tex`; `fig_genelist()` prints
 them on every run. The paper's other two directional sets — the
 ethanol-downregulated ventral/GABAergic programme and the upregulated WNT genes
 — were rendered and rejected: both are much flatter across development.
-
-`figures/make_placeholders.R` regenerates the four placeholder PDFs currently
-referenced by `main.tex`. Filenames are identical to the real outputs, so
-swapping them in requires no edit to `main.tex`.
 
 ## 6. Reference ledger
 
@@ -263,10 +281,13 @@ Everything below is deliberately unfinished in the current draft.
 
 ### Figures and measurements
 
-- [ ] Capture Fig. 2 from the live app: the three modes, the micro/macro toggle,
-      the reference-map modal.
-- [x] Figs. 3 and 4 generated and verified against the deployed API (2026-09-04).
-- [x] Fig. 5 generated from the Fischer et al. (2021) fetal-alcohol signature
+- [x] ~~Capture an interface screenshot~~ — dropped from the manuscript
+      (2026-09-14).
+- [x] Figure files renumbered to match the PDF (`fig1`-`fig4`), Figs. 2-4
+      exported from the API, Fig. 3 legend at two decimals, Fig. 4 legend bar
+      thinned; region mapping added as Supplementary File 1 (2026-11-19).
+- [x] Figs. 2 and 3 generated and verified against the deployed API (2026-09-04).
+- [x] Fig. 4 generated from the Fischer et al. (2021) fetal-alcohol signature
       and verified against `POST /data_genelist` (2026-09-04).
 - [ ] Re-run `preparaDados.R` so `dados_otimizados.rds`, `ontologia_micro.rds`
       and `ontologia_macro.rds` pick up the current `mapeamento_regioes.csv`

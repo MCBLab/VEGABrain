@@ -15,8 +15,6 @@
 \usepackage{textcomp}%
 \usepackage{manyfoot}%
 \usepackage{booktabs}%
-\usepackage{tikz}%
-\usetikzlibrary{arrows.meta,positioning}%
 \usepackage{url}%
 %%%%
 
@@ -172,8 +170,8 @@ one dissected structure share its value (for example, the rostral and caudal
 middle frontal parcels both take the dorsolateral prefrontal cortex samples).
 Atlas regions with no BrainSpan counterpart, such as the brain stem, pallidum
 and choroid plexus, are left unassigned. The complete assignment is a single
-table distributed with the source code, so it can be inspected and changed
-rather than reimplemented per project.
+table, provided as Supplementary File~1 and read by the application as is, so
+it can be inspected and changed rather than reimplemented per project.
 
 The interface exposes two levels of granularity. At the \emph{micro} scale each
 of the 42 mapped atlas regions carries its own value. At the \emph{macro} scale
@@ -241,48 +239,11 @@ public HTTP API, documented in the source repository, so that maps and tables
 can also be retrieved programmatically.
 
 %%------------------------------------------------------------------%%
-%% Figure 1 -- data flow (drawn inline; no external asset)
+%% Figure 1 -- data flow (TikZ source: figures/fig1_architecture.tex)
 %%------------------------------------------------------------------%%
 \begin{figure}[htbp]
 \centering
-\begin{tikzpicture}[
-  box/.style   = {draw, rounded corners=2pt, align=center, inner sep=3pt,
-                  font=\scriptsize, minimum height=9mm, text width=27mm},
-  data/.style  = {box, fill=black!5},
-  proc/.style  = {box, fill=black!12},
-  serve/.style = {box, fill=black!8},
-  arr/.style   = {-{Stealth[length=1.8mm]}, semithick},
-  lab/.style   = {font=\scriptsize, inner sep=1.5pt},
-  band/.style  = {font=\scriptsize\itshape, text=black!55, anchor=west}
-]
-%% ---- offline band -------------------------------------------------
-\node[data] (ms) {MSigDB via \texttt{msigdbr}\\18{,}650 gene sets};
-\node[data, above=3mm of ms] (bs) {BrainSpan RNA-seq\\52{,}376 $\times$ 524};
-\node[data, below=3mm of ms] (mp) {region mapping\\(structure $\rightarrow$ atlas)};
-
-\node[proc, right=13mm of ms] (prep)
-  {Preprocessing\\$\log_2(\mathrm{RPKM}{+}1)$,\\age bins, ssGSEA};
-\node[data, right=13mm of prep] (rds)
-  {Precomputed scores\\set $\times$ window $\times$ region};
-
-\draw[arr] (bs.east) -- (prep.west);
-\draw[arr] (ms.east) -- (prep.west);
-\draw[arr] (mp.east) -- (prep.west);
-\draw[arr] (prep) -- (rds);
-
-%% ---- online band --------------------------------------------------
-\node[serve, below=26mm of prep] (map)
-  {Rendered map\\SVG figure $+$ CSV table};
-\node[serve, left=12mm of map]  (user) {User query\\gene, ontology term\\or gene list};
-\node[serve, right=14mm of map] (ondemand) {On-demand ssGSEA\\for user gene lists};
-
-\draw[arr] (rds.south) -- node[lab, right] {ontology term} (rds.south|-map.north);
-\draw[arr] (user) -- (map);
-\draw[arr] (ondemand) -- node[lab, above] {gene list} (map);
-
-\node[band] at ([yshift=6mm,xshift=-1mm]bs.north west) {offline, once};
-\node[band] at ([yshift=6mm,xshift=-1mm]user.north west) {per request};
-\end{tikzpicture}
+\includegraphics{fig1_architecture.pdf}
 \caption{VEGABrain data flow. The top row runs once, offline; the bottom row
 runs per request. Ontology queries are served from the precomputed score table,
 whereas a user-submitted gene list triggers a fresh ssGSEA run over all 524
@@ -305,9 +266,6 @@ computed from its export cannot disagree. We illustrate each mode with a case
 whose developmental behaviour is independently established, so that the maps
 can also be judged for biological face validity.
 
-% TODO-measure: replace the qualitative statements below with the rendered maps
-% and, where useful, the per-window means from the CSV exports.
-
 \subsection{Single-gene maps}
 
 Gene mode renders the mean $\log_2(\mathrm{RPKM}+1)$ of any gene in the matrix
@@ -316,8 +274,7 @@ that maps for different genes are directly comparable rather than each being
 auto-scaled to its own range. Oligodendrocyte and myelination markers
 (\emph{SOX10}, \emph{MBP}, \emph{PLP1}) should be low prenatally and rise
 sharply in the infant and adult windows as myelination proceeds;
-Figure~\ref{fig:gene} shows \emph{SOX10}. \textbf{[TODO: report the observed
-per-window means]}.
+Figure~\ref{fig:gene} shows \emph{SOX10}.
 
 \subsection{Gene-set maps}
 
@@ -329,7 +286,7 @@ the coordinated behaviour of tens to hundreds of genes. The member genes of the
 selected set are listed alongside the map, so the composition of any score is
 inspectable. Neurogenesis-associated terms such as
 \texttt{GOBP\_FOREBRAIN\_GENERATION\_OF\_NEURONS} should peak in the prenatal
-windows and decline postnatally; \textbf{[TODO]}. The composite score is
+windows and decline postnatally. The composite score is
 informative precisely here: the individual genes of a neurogenesis term are
 noisy across 42 sparsely sampled regions, whereas the ssGSEA summary of the
 term is not.
@@ -344,7 +301,7 @@ differential expression analysis, a co-expression module, or a disorder risk
 panel can be mapped across development directly, without the user preparing
 data or writing code. GABAergic interneuron markers (\emph{GAD1}, \emph{GAD2},
 \emph{SLC32A1}) should be present from the second trimester onward with
-subcortical and then cortical distribution; \textbf{[TODO]}.In addition to entering genes, 
+subcortical and then cortical distribution. In addition to entering genes,
 for each entry, the researcher can add a logFC value of their choice. The process can simulate 
 how that variation in expression might impact the developmental process.
 
@@ -368,7 +325,7 @@ disease with a merely prenatal attribution.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig3_gene_sox10.png}
+\includegraphics[width=\textwidth]{fig2_gene_sox10.png}
 \caption{Single-gene mode. Mean $\log_2(\mathrm{RPKM}+1)$ for \emph{SOX10}
 across the five developmental windows (columns) in four views (rows): right
 lateral cortex and right medial cortex on the Desikan--Killiany parcellation,
@@ -379,7 +336,7 @@ segmentation. Grey indicates regions with no BrainSpan sample in that window.}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig4_ontology.png}
+\includegraphics[width=\textwidth]{fig3_ontology.png}
 \caption{Ontology mode: composite ssGSEA score for
 \texttt{GOBP\_FOREBRAIN\_GENERATION\_OF\_NEURONS} across development. The score
 summarises every gene in the term into one value per region and window; the same
@@ -390,7 +347,7 @@ term can be viewed at micro granularity (42 atlas regions) or macro granularity
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig5_genelist.pdf}
+\includegraphics[width=\textwidth]{fig4_genelist.png}
 \caption{User-submitted gene-list mode. ssGSEA computed on demand for the
 dorsal/glutamatergic specification programme that \citet{Fischer2021} report as
 upregulated by chronic intermittent ethanol exposure in human pluripotent stem
@@ -577,6 +534,21 @@ open. The tool is available at \url{https://mcblab.github.io/VEGABrain/}.
 %%==================================================================%%
 \backmatter
 %%==================================================================%%
+
+\bmhead{Supplementary information}
+
+\textbf{Supplementary File 1} is the assignment of BrainSpan dissected
+structures to atlas parcels used by VEGABrain (Section~\ref{sec:mapping}), as a
+CSV table (\texttt{S1\_region\_mapping.csv}) with one row per
+parcel--structure pair. Column
+\texttt{region} is the Desikan--Killiany or \texttt{aseg} parcel as named by
+\texttt{ggseg}; \texttt{structure\_name} is the BrainSpan structure whose
+samples are averaged into that parcel; \texttt{macro\_regions} is the
+macro-scale grouping (frontal, parietal, temporal or occipital lobe,
+subcortical, or cerebellum). A parcel fed by two
+structures appears on two rows (thalamus, cerebellum), and the thalamus is
+listed under both \texttt{Thalamus} and \texttt{Thalamus Proper}, the names it
+carries in different FreeSurfer \texttt{aseg} versions.
 
 \bmhead{Acknowledgements}
 

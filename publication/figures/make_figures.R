@@ -1,13 +1,14 @@
 #!/usr/bin/env Rscript
-# Publication figures for the VEGABrain manuscript.
+# Offline vector renders of the manuscript's brain maps (Figs. 2-4).
 #
-# Renders locally with the same ggseg code path the API serves
-# (see ../../plumber.R:build_brain_grid), so what the paper shows is what
-# the tool produces. Writes PDF directly -- no SVG conversion step, and no
-# dependency on the deployed API being warm.
+# The figures in the paper are the API's own PNGs, downloaded by
+# export_figures.sh. This script redraws the same maps without the API, with
+# the same ggseg code path (see ../../plumber.R:build_brain_grid), as vector
+# PDF in figures/offline/. Its use is cross-checking the API's values and
+# producing vector versions if a journal asks for them.
 #
 #   Rscript figures/make_figures.R            # all figures
-#   Rscript figures/make_figures.R fig4        # one figure
+#   Rscript figures/make_figures.R fig3        # one figure
 #
 # Needs the prepared data objects in the repository root:
 #   dados_otimizados.rds, ontologyssGSEA.csv, mapeamento_regioes.csv
@@ -31,6 +32,10 @@ OUT  <- normalizePath(file.path(dirname(sub("^--file=", "", grep("^--file=", com
                                                                  value = TRUE)[1])), "."),
                       mustWork = FALSE)
 if (is.na(OUT) || !dir.exists(OUT)) OUT <- "."
+# A subfolder, so these PDFs never sit next to the paper's PNGs under the same
+# figure number.
+OUT <- file.path(OUT, "offline")
+dir.create(OUT, showWarnings = FALSE)
 
 AGES <- c("1st trimester (n = 5)", "2nd trimester (n = 10)", "3rd trimester (n = 5)",
           "Infant (n = 14)", "Adult (n = 8)")
@@ -63,7 +68,7 @@ regioes_por_macro <- meta_limpo %>%
   distinct(broad_age, region, macro_region)
 
 # One gene set's 524 sample-level scores, pulled out of the 9.7M-row export.
-# Figure 4 aggregates these here rather than reading ontologia_micro.rds for
+# Figure 3 aggregates these here rather than reading ontologia_micro.rds for
 # the reason above: the precomputed tables carry the stale region names, and
 # aggregating from samples puts all three figures on one code path.
 scores_por_amostra <- function(geneset) {
@@ -90,7 +95,6 @@ build_brain_grid <- function(data, fill_var, fill_scale, caption_text = NULL) {
             strip.background = element_blank(),
             legend.position = legend,
             plot.margin     = margin(t = 20, r = 5, b = 0, l = 5),
-            legend.key.height = unit(2, "cm"),
             plot.background = element_rect(fill = "white", colour = NA),
             plot.caption    = element_text(color = "firebrick", face = "bold",
                                            size = 11, hjust = 0.5, margin = margin(t = 15)))
@@ -114,8 +118,8 @@ to_scale <- function(df, value_col, escala) {
   }
 }
 
-# ---- Figure 3: single gene ------------------------------------------------
-fig_gene <- function(gene = "SOX10", escala = "micro", out = "fig3_gene_sox10.pdf") {
+# ---- Figure 2: single gene ------------------------------------------------
+fig_gene <- function(gene = "SOX10", escala = "micro", out = "fig2_gene_sox10.pdf") {
   df <- data.frame(column_num = as.numeric(colnames(matrix_dados)),
                    Expressao  = as.numeric(matrix_dados[gene, ])) %>%
     inner_join(meta_limpo, by = "column_num") %>%
@@ -128,20 +132,24 @@ fig_gene <- function(gene = "SOX10", escala = "micro", out = "fig3_gene_sox10.pd
   message("wrote ", file.path(OUT, out))
 }
 
-# ---- Figure 4: ontology score ---------------------------------------------
+# ---- Figure 3: ontology score ---------------------------------------------
 fig_ontology <- function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS",
-                         escala = "micro", out = "fig4_ontology.pdf") {
+                         escala = "micro", out = "fig3_ontology.pdf") {
   df <- scores_por_amostra(geneset) %>%
     inner_join(meta_limpo, by = "column_num") %>%
     mutate(broad_age = factor(broad_age, levels = AGES)) %>%
     to_scale("Score_ssGSEA", escala)
   stopifnot(nrow(df) > 0)
-  sc <- scale_fill_gradientn(colors = PAL, name = "ssGSEA score", na.value = "darkgray")
+  # Same legend as plumber.R:grafico_ontologia -- 1/2/5-step breaks keep the
+  # labels at two decimals and exact, and the wider bar keeps them apart.
+  sc <- list(scale_fill_gradientn(colors = PAL, breaks = scales::breaks_pretty(n = 4),
+                                  name = "ssGSEA Score", na.value = "darkgray"),
+             guides(fill = guide_colorbar(barwidth = unit(5, "cm"))))
   ggsave(file.path(OUT, out), build_brain_grid(df, "v", sc), width = 11, height = 9, device = cairo_pdf)
   message("wrote ", file.path(OUT, out))
 }
 
-# ---- Figure 5: on-demand ssGSEA for a user gene list ----------------------
+# ---- Figure 4: on-demand ssGSEA for a user gene list ----------------------
 # The demonstration list is the dorsal/glutamatergic specification programme
 # that Fischer et al. (2021, Alcohol Clin Exp Res 45:979-995) report as
 # upregulated by chronic intermittent ethanol in human pluripotent stem cells
@@ -154,7 +162,7 @@ FAS_DORSAL <- c("EMX2", "LHX1", "LHX2", "LHX5", "LHX9", "OTX2", "FEZF2",
                 "NEUROD1", "NEUROD2", "NEUROD6", "NEUROG2", "TBR1", "EOMES")
 
 fig_genelist <- function(genes = FAS_DORSAL,
-                         escala = "micro", out = "fig5_genelist.pdf") {
+                         escala = "micro", out = "fig4_genelist.pdf") {
   valid <- intersect(genes, rownames(matrix_dados))
   stopifnot(length(valid) > 0)
   if (length(valid) < length(genes))
@@ -176,7 +184,7 @@ fig_genelist <- function(genes = FAS_DORSAL,
 
 args <- commandArgs(trailingOnly = TRUE)
 want <- function(x) length(args) == 0 || x %in% args
-if (want("fig3")) fig_gene()
-if (want("fig4")) fig_ontology()
-if (want("fig5")) fig_genelist()
-message("done. Figure 2 (interface) is a screen capture, not generated here.")
+if (want("fig2")) fig_gene()
+if (want("fig3")) fig_ontology()
+if (want("fig4")) fig_genelist()
+message("done. Figure 1 is TikZ (fig1_architecture.tex), not generated here.")
