@@ -43,7 +43,7 @@ developing human brain}
 %%==================================================================%%
 
 \abstract{
-  RNA sequencing datasets are widely reused resources in developmental neuroscience, yet inspecting them spatially remains unclear and difficult. Here, we present VEGABrain, an openly accessible web tool that renders bulk RNA-seq onto brain cortical and subcortical atlas surfaces across five human developmental windows spanning the first trimester to adulthood. Beyond single-gene maps, VEGABrain contributes a composite per-region enrichment layer using single-sample gene set enrichment analysis (ssGSEA) scores precomputed for ${\sim}$19,000 gene sets drawn from Gene Ontology, Reactome, KEGG, BioCarta, the Human Phenotype Ontology and the MSigDB hallmark collection, and aggregated to a score for every gene set, developmental window and brain region. Furthermore, VEGABrain allows users to submit a custom gene list and obtain its ssGSEA map across development, computed on demand. VEGABrain is open source and requires no installation, offering easy-to-query expression throughout development and brain areas.
+  RNA sequencing datasets are widely reused resources in developmental neuroscience, yet inspecting them spatially remains unclear and difficult. Here, we present VEGABrain, an openly accessible web tool that renders bulk RNA-seq onto brain cortical and subcortical atlas surfaces across five human developmental windows spanning the first trimester to adulthood. Beyond single-gene maps, VEGABrain contributes a composite per-region enrichment layer using single-sample gene set enrichment analysis (ssGSEA) scores precomputed for 18{,}650 gene sets drawn from Gene Ontology, Reactome, KEGG, BioCarta, the Human Phenotype Ontology and the MSigDB hallmark collection, and aggregated to a score for every gene set, developmental window and brain region. Furthermore, VEGABrain allows users to submit a custom gene list and obtain its ssGSEA map across development, computed on demand. VEGABrain is open source and requires no installation, offering easy-to-query expression throughout development and brain areas.
 }
 
 \keywords{Neuroinformatics, Brain development, BrainSpan, Gene set enrichment,
@@ -133,7 +133,7 @@ consistent with the FAIR principles for reusable research data
 \subsection{Expression data and preprocessing}\label{sec:data}
 
 VEGABrain is built on the BrainSpan Developmental Transcriptome RNA-Seq release,
-Gencode v10 RPKM values summarised to genes \citep{BrainSpan2011,Miller2014}.
+Gencode v10 RPKM values summarised to genes \citep{BrainSpan2011,Li2018}.
 The distributed matrix contains 52{,}376 gene rows and 524 sample columns. Rows
 with duplicate HGNC symbols are dropped, keeping the first occurrence, and
 values are transformed as $\log_2(\mathrm{RPKM} + 1)$. No further normalisation
@@ -211,7 +211,7 @@ where each sample is a single donor--structure pair rather than a member of a
 case/control design. We use the \texttt{ssgseaParam} interface of the
 \texttt{GSVA} package \citep{Hanzelmann2013} with default parameters.
 
-Gene sets are retrieved through \texttt{msigdbr} \citep{Dolgalev2025msigdbr} for
+Gene sets are retrieved through \texttt{msigdbr} \citep{Dolgalev2026msigdbr} for
 \emph{Homo sapiens} and comprise the MSigDB hallmark collection
 \citep{Liberzon2015}, the canonical pathway subcollections BioCarta, KEGG
 \citep{Kanehisa2000} and Reactome \citep{Gillespie2022}, and the full C5
@@ -231,8 +231,8 @@ aggregation is applied before rendering.
 \subsection{Implementation}\label{sec:impl}
 
 VEGABrain is an R \citep{RCoreTeam2026} service built with \texttt{plumber}
-\citep{Schloerke2024plumber} behind a browser interface (Figure~\ref{fig:arch}).
-Maps are rendered with \texttt{ggplot2} and \texttt{ggseg}
+\citep{Schloerke2026plumber} behind a browser interface (Figure~\ref{fig:arch}).
+Maps are rendered with \texttt{ggplot2} \citep{Wickham2016} and \texttt{ggseg}
 \citep{Mowinckel2020}, and can be downloaded as vector (SVG) figures together
 with the per-region values behind them as CSV. The same service is exposed as a
 public HTTP API, documented in the source repository, so that maps and tables
@@ -310,7 +310,7 @@ timing is experimentally fixed rather than merely presumed.
 \citet{Fischer2021} exposed human pluripotent stem cells to chronic
 intermittent ethanol throughout a 50-day differentiation to cortical neurons,
 which corresponds to the first trimester, and report an upregulated
-dorsal/glutamatergic specification programme. Submitting those 13 symbols
+posterodorsal (dorsal/glutamatergic) specification programme. Submitting those 13 symbols
 (Figure~\ref{fig:genelist}) through gene-list mode returns a map whose
 region-averaged score declines monotonically across the five windows---0.79,
 0.73, 0.58, 0.46, 0.44---so the signature is maximal in exactly the window the
@@ -349,7 +349,7 @@ term can be viewed at micro granularity (42 atlas regions) or macro granularity
 \centering
 \includegraphics[width=\textwidth]{fig4_genelist.png}
 \caption{User-submitted gene-list mode. ssGSEA computed on demand for the
-dorsal/glutamatergic specification programme that \citet{Fischer2021} report as
+posterodorsal (dorsal/glutamatergic) specification programme that \citet{Fischer2021} report as
 upregulated by chronic intermittent ethanol exposure in human pluripotent stem
 cells differentiated to first-trimester-equivalent cortical neurons
 (\emph{EMX2}, \emph{LHX1/2/5/9}, \emph{OTX2}, \emph{FEZF2},
@@ -430,7 +430,7 @@ parcellated map of the developing brain, in a browser.
 \midrule
 VEGABrain (this work)             & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
 BrainSpan portal \citep{BrainSpan2011} & \checkmark & ---   & ---        & ---        & \checkmark \\
-Allen browsers \citep{Lau2008,Sunkin2013} & ---   & \checkmark & ---     & ---        & \checkmark \\
+Allen browsers \citep{Sunkin2013} & ---   & \checkmark & ---     & ---        & \checkmark \\
 BrainScope \citep{Huisman2017}         & \checkmark & \checkmark & ---   & \checkmark & \checkmark \\
 SMDB \citep{Cao2023}                   & ---        & \checkmark & ---   & ---        & \checkmark \\
 \texttt{ggseg} \citep{Mowinckel2020}   & ---        & \checkmark & ---   & \checkmark & --- \\
@@ -458,7 +458,8 @@ programmatic tools take a value per region as \emph{input}, leaving the user to
 obtain, preprocess and map the developmental expression data themselves.
 \texttt{cerebroViz} \citep{Bahl2017} is the closest of them in intent, having
 been written for spatiotemporal brain data specifically and shipping region
-vocabularies for BrainSpan, GTEx and Roadmap Epigenomics; it nonetheless remains
+vocabularies for BrainSpan, GTEx \citep{GTEx2013} and Roadmap Epigenomics
+\citep{Roadmap2015}; it nonetheless remains
 a drawing layer over a matrix the user provides, carries no expression data of
 its own, and computes no enrichment. The same qualification applies to the
 code-first route as a whole. \citet{Chopra2023} argue for it persuasively and
@@ -475,7 +476,7 @@ abstraction differs, and with it the question answered. BrainScope arranges the
 Allen adult and developing atlases as linked t-SNE maps of genes and samples,
 localising samples anatomically through choropleths over selected slices, and
 summarises a submitted set by its mean expression while delegating enrichment to
-Enrichr and ToppGene. VEGABrain asks the narrower question of where a set sits
+Enrichr \citep{Chen2013} and ToppGene \citep{Chen2009}. VEGABrain asks the narrower question of where a set sits
 in a named parcellation, window by window, and answers it with a rank-based
 composite score rather than a mean, drawn on the Desikan--Killiany and
 \texttt{aseg} atlases that the imaging literature already uses. SMDB
@@ -573,7 +574,8 @@ the BrainSpan Developmental Transcriptome and involved no new human subjects.
 
 \bmhead{Data availability}
 The expression data analysed here are the BrainSpan Developmental Transcriptome
-RNA-Seq Gencode v10 summarised-to-genes release, publicly available at
+RNA-Seq Gencode v10 summarised-to-genes release \citep{BrainSpan2011,Li2018},
+publicly available at
 \url{https://www.brainspan.org}. Gene sets were obtained from MSigDB through the
 \texttt{msigdbr} R package. The derived per-region, per-window score tables
 served by VEGABrain are downloadable as CSV directly from the application.

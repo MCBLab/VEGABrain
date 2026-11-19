@@ -26,7 +26,7 @@ placeholder, and how to build the PDF.
 publication/
 ├── main.tex                  the manuscript
 ├── main.pdf                  built output (19 pp, A4)
-├── references.bib            38 entries
+├── references.bib            42 entries
 ├── build.sh                  build / clean
 ├── sn-jnl.cls                Springer Nature class (copied from template/)
 ├── sn-basic.bst              bibliography style used by main.tex
@@ -237,7 +237,7 @@ ethanol-downregulated ventral/GABAergic programme and the upregulated WNT genes
 
 ## 6. Reference ledger
 
-38 entries in `references.bib`; 23 have the full text archived in
+42 entries in `references.bib` (four added 2026-11-19 after review: ggplot2, ToppGene, GTEx, Roadmap); 23 have the full text archived in
 `references/<Key>.pdf`. Bib key ⇄ filename is 1:1 (`Zhu2019.pdf` was renamed to
 `Zhu2018.pdf` and `mowinckel2020.pdf` to `Mowinckel2020.pdf` to keep it so).
 
