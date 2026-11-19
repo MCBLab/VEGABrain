@@ -115,7 +115,7 @@ export default function About() {
             >
               Marques-Coelho Bioinformatics Lab
             </a>
-            , it is situated in Instituto do Cérebro - ICE, UFRN, Natal-RN.
+            , based at the Brain Institute (ICe) of the Federal University of Rio Grande do Norte (UFRN), Natal, Brazil.
           </p>
         </div>
  

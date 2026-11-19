@@ -11,6 +11,16 @@ rows <- vroom("genes_matrix_csv/rows_metadata.csv")
 columns <- vroom("genes_matrix_csv/columns_metadata.csv")
 mapeamento_completo <- vroom("mapeamento_regioes.csv")
 
+# Macro groups reach users (reference-map legend, macro-scale CSV exports), so
+# they must be in English. This CSV is gitignored and older copies still carry
+# Portuguese labels; translate them here so a stale copy cannot bring them back.
+macro_en <- c("lobo frontal" = "frontal lobe", "lobo parietal" = "parietal lobe",
+              "lobo temporal" = "temporal lobe", "lobo occipital" = "occipital lobe",
+              "cerebelo" = "cerebellum")
+legado <- mapeamento_completo$macro_regions %in% names(macro_en)
+mapeamento_completo$macro_regions[legado] <-
+  unname(macro_en[mapeamento_completo$macro_regions[legado]])
+
 counts_raw <- vroom(
   "genes_matrix_csv/expression_matrix.csv",
   col_names = FALSE

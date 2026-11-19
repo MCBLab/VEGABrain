@@ -35,7 +35,7 @@ regioes_por_macro <- meta_limpo %>%
 setgene <- rownames(matrix_dados)
 setontologies <- sort(unique(ontologia_micro$GeneSet))
 
-# Devolve (broad_age, region, Score_Medio_ssGSEA) para uma ontologia. Na escala
+# Devolve (broad_age, region, Avg_ssGSEA_Score) para uma ontologia. Na escala
 # macro cada região recebe a média da macro-região a que pertence.
 scores_ontologia <- function(geneset, escala) {
   if (escala == "macro") {
@@ -44,11 +44,11 @@ scores_ontologia <- function(geneset, escala) {
       inner_join(regioes_por_macro,
                  by = c("broad_age", "macro_region"),
                  relationship = "many-to-many") %>%
-      select(broad_age, region, Score_Medio_ssGSEA)
+      select(broad_age, region, Avg_ssGSEA_Score = Score_Medio_ssGSEA)
   } else {
     ontologia_micro %>%
       filter(GeneSet == geneset) %>%
-      select(broad_age, region, Score_Medio_ssGSEA)
+      select(broad_age, region, Avg_ssGSEA_Score = Score_Medio_ssGSEA)
   }
 }
 
@@ -147,11 +147,11 @@ score_ponderado <- function(genes, pesos) {
   sub <- matrix_dados[genes, , drop = FALSE]
   desv <- apply(sub, 1, sd)
   ok <- is.finite(desv) & desv > 0
-  if (!any(ok)) stop("Erro: nenhum dos genes informados varia entre as amostras.")
+  if (!any(ok)) stop("Error: none of the submitted genes varies across samples.")
 
   sub <- sub[ok, , drop = FALSE]
   pesos <- pesos[ok]
-  if (sum(abs(pesos)) == 0) stop("Erro: todos os log2FC informados sao zero.")
+  if (sum(abs(pesos)) == 0) stop("Error: all submitted log2FC values are zero.")
 
   z <- (sub - rowMeans(sub)) / desv[ok]
   as.numeric(crossprod(z, pesos) / sum(abs(pesos)))
@@ -190,15 +190,15 @@ agrega_por_regiao <- function(score_por_amostra, escala, nome_col,
 scores_assinatura <- function(assinatura, escala) {
   genes <- assinatura$validos$gene
   if (length(genes) == 0) {
-    stop("Erro: Nenhum dos genes fornecidos foi encontrado na base de dados.")
+    stop("Error: none of the submitted genes was found in the expression matrix.")
   }
 
   if (assinatura$ponderado) {
-    coluna <- "Score_Medio_Ponderado"
+    coluna <- "Avg_Weighted_Score"
     dados <- agrega_por_regiao(
       score_ponderado(genes, assinatura$validos$peso), escala, coluna)
   } else {
-    coluna <- "Score_Medio_ssGSEA"
+    coluna <- "Avg_ssGSEA_Score"
     ssgsea_parametros <- GSVA::ssgseaParam(
       exprData = as.matrix(matrix_dados),
       geneSets = list(UserSet = genes)
@@ -211,11 +211,13 @@ scores_assinatura <- function(assinatura, escala) {
 
   list(dados = dados, coluna = coluna)
 }
+#* All gene symbols in the expression matrix
 #* @get /list_genes
 function() {
   setgene
 }
 
+#* All precomputed gene set names
 #* @get /list_ontologies
 function() {
   setontologies
@@ -318,7 +320,7 @@ build_brain_grid <- function(data, fill_var, fill_scale, caption_text = NULL) {
 # o device do serializer, para que os dois formatos nunca divirjam.
 
 grafico_gene <- function(gene = "SOX10", escala = "micro") {
-  if (!(gene %in% rownames(matrix_dados))) stop("Erro: Gene não encontrado.")
+  if (!(gene %in% rownames(matrix_dados))) stop("Error: gene not found.")
 
   ordem_idades <- c("1st trimester (n = 5)", "2nd trimester (n = 10)", "3rd trimester (n = 5)", "Infant (n = 14)", "Adult (n = 8)")
   matrix_dados <- as.matrix(dados_app$expression_matrix)
@@ -337,36 +339,38 @@ grafico_gene <- function(gene = "SOX10", escala = "micro") {
     dados_gene_plot <- dados_base %>%
       filter(!is.na(macro_region)) %>%
       group_by(broad_age, macro_region) %>%
-      mutate(Expressao_Media = mean(Expressao, na.rm = TRUE)) %>%
+      mutate(Avg_Expression = mean(Expressao, na.rm = TRUE)) %>%
       ungroup() %>%
-      distinct(broad_age, region, Expressao_Media)
+      distinct(broad_age, region, Avg_Expression)
   } else {
     dados_gene_plot <- dados_base %>%
     group_by(broad_age, region) %>%
-    summarise(Expressao_Media = mean(Expressao, na.rm = TRUE), .groups = "drop")
+    summarise(Avg_Expression = mean(Expressao, na.rm = TRUE), .groups = "drop")
   }
 
   escala <- scale_fill_gradientn( colors = c("#1A318B", "#4F71BE", "#C2B4D6", "#D1498C", "#7A0845"), 
     values = scales::rescale(c(0, 1.5, 3, 4.5, 6)),limits = c(0, 6), 
     name = "Log2 Expr", na.value = "darkgray")  
 
-  build_brain_grid(dados_gene_plot, "Expressao_Media", escala)
+  build_brain_grid(dados_gene_plot, "Avg_Expression", escala)
 }
 
-#* Retorna o plot do cérebro com a expressão do gene selecionado (SVG)
-#* @param gene Nome do gene selecionado no front-end
+#* Brain map of one gene's mean log2(RPKM+1) expression (SVG)
+#* @param gene Gene symbol
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer svg list(width = 11, height = 7)
 #* @get /plot_brain
-function(gene = "SOX10", escala = "micro") {
-  print(grafico_gene(gene, escala))
+function(gene = "SOX10", scale = "micro") {
+  print(grafico_gene(gene, scale))
 }
 
-#* Mesmo mapa do /plot_brain, em PNG
-#* @param gene Nome do gene selecionado no front-end
+#* Same map as /plot_brain, as PNG
+#* @param gene Gene symbol
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer png list(width = 11, height = 7, units = "in", res = 150)
 #* @get /plot_brain_png
-function(gene = "SOX10", escala = "micro") {
-  print(grafico_gene(gene, escala))
+function(gene = "SOX10", scale = "micro") {
+  print(grafico_gene(gene, scale))
 }
 
 grafico_ontologia <- function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", escala = "micro") {
@@ -374,32 +378,42 @@ grafico_ontologia <- function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", 
 
   dados_prontos <- scores_ontologia(geneset, escala)
 
-  if (nrow(dados_prontos) == 0) stop("Ontologia não encontrada ou sem dados para plotagem.")
+  if (nrow(dados_prontos) == 0) stop("Error: gene set not found or has no data to plot.")
 
   dados_prontos <- dados_prontos %>%
     mutate(broad_age = factor(broad_age, levels = ordem_idades))
 
-  escala_cor <- scale_fill_gradientn( colors = c("#1A318B", "#4F71BE", "#C2B4D6", "#D1498C", "#7A0845"),
-    #values = scales::rescale(c(0, 2, 4, 6, 8)),limits = c(0, 8),
-    name = "ssGSEA Score", na.value = "darkgray")
+  # Ontology scores span a narrow range (e.g. 0.29-0.39), where the default
+  # 0.025-step breaks need three decimals and the labels run together.
+  # breaks_pretty only uses 1/2/5 steps, so labels get two decimals whenever
+  # the range allows and stay exact (0.325 is never printed as "0.32"); the
+  # wider bar fits up to five labels.
+  escala_cor <- list(
+    scale_fill_gradientn( colors = c("#1A318B", "#4F71BE", "#C2B4D6", "#D1498C", "#7A0845"),
+      breaks = scales::breaks_pretty(n = 4),
+      name = "ssGSEA Score", na.value = "darkgray"),
+    guides(fill = guide_colorbar(barwidth = unit(5, "cm")))
+  )
 
-  build_brain_grid(dados_prontos, "Score_Medio_ssGSEA", escala_cor)
+  build_brain_grid(dados_prontos, "Avg_ssGSEA_Score", escala_cor)
 }
 
-#* Plota o mapa cerebral baseado no Score ssGSEA de uma ONTOLOGIA (SVG)
-#* @param geneset A ontologia selecionada
+#* Brain map of a precomputed gene set's mean ssGSEA score (SVG)
+#* @param geneset Gene set name, as listed by /list_ontologies
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer svg list(width = 11, height = 7)
 #* @get /plot_ontology
-function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", escala = "micro") {
-  print(grafico_ontologia(geneset, escala))
+function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", scale = "micro") {
+  print(grafico_ontologia(geneset, scale))
 }
 
-#* Mesmo mapa do /plot_ontology, em PNG
-#* @param geneset A ontologia selecionada
+#* Same map as /plot_ontology, as PNG
+#* @param geneset Gene set name, as listed by /list_ontologies
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer png list(width = 11, height = 7, units = "in", res = 150)
 #* @get /plot_ontology_png
-function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", escala = "micro") {
-  print(grafico_ontologia(geneset, escala))
+function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", scale = "micro") {
+  print(grafico_ontologia(geneset, scale))
 }
 
 grafico_genelist <- function(gene_string = "", escala = "micro") {
@@ -444,27 +458,30 @@ grafico_genelist <- function(gene_string = "", escala = "micro") {
   build_brain_grid(resultado$dados, resultado$coluna, escala_cor, legenda)
 }
 
-#* Plota o mapa cerebral baseado no ssGSEA de uma lista CUSTOMIZADA de genes (SVG)
-#* @param gene_string Uma string de genes
+#* Brain map of a user gene list, scored on demand: ssGSEA, or a log2FC-weighted score when values are given (SVG)
+#* @param gene_string One gene per line, optionally followed by its log2FC (weighted signature)
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer svg list(width = 11, height = 7)
 #* @post /plot_genelist
-function(gene_string = "", escala = "micro") {
-  print(grafico_genelist(gene_string, escala))
+function(gene_string = "", scale = "micro") {
+  print(grafico_genelist(gene_string, scale))
 }
 
-#* Mesmo mapa do /plot_genelist, em PNG
-#* @param gene_string Uma string de genes
+#* Same map as /plot_genelist, as PNG
+#* @param gene_string One gene per line, optionally followed by its log2FC (weighted signature)
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer png list(width = 11, height = 7, units = "in", res = 150)
 #* @post /plot_genelist_png
-function(gene_string = "", escala = "micro") {
-  print(grafico_genelist(gene_string, escala))
+function(gene_string = "", scale = "micro") {
+  print(grafico_genelist(gene_string, scale))
 }
 
-#* Baixar dados do mapa de Gene Único
-#* @param gene Nome do gene
+#* Table behind /plot_brain: mean expression per window and region (CSV)
+#* @param gene Gene symbol
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer csv
 #* @get /data_brain
-function(gene = "SOX10", escala = "micro") {
+function(gene = "SOX10", scale = "micro") {
   
   ordem_idades <- c("1st trimester (n = 5)", "2nd trimester (n = 10)", "3rd trimester (n = 5)", "Infant (n = 14)", "Adult (n = 8)")
   
@@ -476,30 +493,31 @@ function(gene = "SOX10", escala = "micro") {
     filter(!is.na(broad_age)) %>%
     mutate(broad_age = factor(broad_age, levels = ordem_idades))
     
-  if (escala == "macro") {
+  if (scale == "macro") {
     dados_finais <- dados_base %>%
       filter(!is.na(macro_region)) %>%
       group_by(broad_age, macro_region) %>%
-      summarise(Expressao_Media = mean(Expressao, na.rm = TRUE), .groups = "drop")
+      summarise(Avg_Expression = mean(Expressao, na.rm = TRUE), .groups = "drop")
   } else {
     dados_finais <- dados_base %>%
       group_by(broad_age, region) %>%
-      summarise(Expressao_Media = mean(Expressao, na.rm = TRUE), .groups = "drop")
+      summarise(Avg_Expression = mean(Expressao, na.rm = TRUE), .groups = "drop")
   }
 
   return(dados_finais)
 }
 
-#* Baixar dados da Ontologia
-#* @param geneset A ontologia
+#* Table behind /plot_ontology: mean ssGSEA score per window and region (CSV)
+#* @param geneset Gene set name, as listed by /list_ontologies
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer csv
 #* @get /data_ontology
-function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", escala = "micro") {
+function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", scale = "micro") {
   ordem_idades <- c("1st trimester (n = 5)", "2nd trimester (n = 10)", "3rd trimester (n = 5)", "Infant (n = 14)", "Adult (n = 8)")
 
-  dados_prontos <- scores_ontologia(geneset, escala)
+  dados_prontos <- scores_ontologia(geneset, scale)
 
-  if (nrow(dados_prontos) == 0) stop("Ontologia não encontrada ou sem dados para plotagem.")
+  if (nrow(dados_prontos) == 0) stop("Error: gene set not found or has no data to plot.")
 
   dados_prontos <- dados_prontos %>%
     mutate(broad_age = factor(broad_age, levels = ordem_idades)) %>%
@@ -508,22 +526,23 @@ function(geneset = "GOBP_FOREBRAIN_GENERATION_OF_NEURONS", escala = "micro") {
   return(dados_prontos)
 }
 
-#* Baixar dados da Lista Customizada
-#* @param gene_string
+#* Table behind /plot_genelist: mean score per window and region (CSV)
+#* @param gene_string One gene per line, optionally followed by its log2FC (weighted signature)
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer csv
 #* @post /data_genelist
-function(gene_string = "", escala = "micro") {
+function(gene_string = "", scale = "micro") {
   assinatura <- assinatura_valida(gene_string)
 
   if (nrow(assinatura$validos) == 0) {
-    return(data.frame(Erro = "Nenhum gene valido"))
+    return(data.frame(Error = "No valid genes"))
   }
 
-  return(scores_assinatura(assinatura, escala)$dados)
+  return(scores_assinatura(assinatura, scale)$dados)
 }
 
-#* Verifica quais genes da lista existem no banco de dados
-#* @param gene_string
+#* Checks which submitted symbols exist in the expression matrix, and whether the list carries log2FC weights
+#* @param gene_string One gene per line, optionally followed by its log2FC (weighted signature)
 #* @post /validate_genelist
 function(gene_string = "") {
   assinatura <- assinatura_valida(gene_string)
@@ -531,18 +550,18 @@ function(gene_string = "") {
   # unbox: sem isso o serializer manda [false] / [3] no lugar de escalares,
   # e o front teria de desembrulhar campo a campo.
   return(list(
-    validos    = assinatura$validos$gene,
-    invalidos  = assinatura$invalidos,
-    ponderado  = jsonlite::unbox(assinatura$ponderado),
-    n_up       = jsonlite::unbox(assinatura$n_up),
-    n_down     = jsonlite::unbox(assinatura$n_down),
-    n_sem_peso = jsonlite::unbox(assinatura$n_sem_peso)
+    valid        = assinatura$validos$gene,
+    invalid      = assinatura$invalidos,
+    weighted     = jsonlite::unbox(assinatura$ponderado),
+    n_up         = jsonlite::unbox(assinatura$n_up),
+    n_down       = jsonlite::unbox(assinatura$n_down),
+    n_unweighted = jsonlite::unbox(assinatura$n_sem_peso)
   ))
 }
 
-#* Retorna os genes da ontologia selecionada
-#* @param geneset Nome da ontologia
-#* @get /genes_da_via
+#* Member genes of a precomputed gene set that are present in the expression matrix
+#* @param geneset Gene set name, as listed by /list_ontologies
+#* @get /geneset_genes
 function(geneset = "") {
   if (geneset == "" || is.null(genesets_list[[geneset]])) {
     return(list(genes = character(0)))
@@ -554,14 +573,14 @@ function(geneset = "") {
   return(list(genes = as.character(genes_presentes)))
 }
 
-#* Retorna o mapa de referência de uma aba específica
-#* @param view Qual corte mostrar (lateral, medial, sagittal, coronal)
-#* @param escala Qual nível de detalhe (micro, macro)
+#* Reference map naming the atlas regions (micro) or anatomical groups (macro) of one view (SVG)
+#* @param view Which view to draw: lateral, medial, sagittal or coronal
+#* @param scale Region granularity: micro (atlas regions) or macro (anatomical groups)
 #* @serializer svg list(width = 9, height = 7)
 #* @get /plot_reference
-function(view = "lateral", escala = "micro") {
+function(view = "lateral", scale = "micro") {
   
-  if (escala == "macro") {
+  if (scale == "macro") {
     mapa_referencia <- dados_app$mapping_info$region_to_macro_structure
     coluna <- "macro_region"
   } else {
@@ -583,31 +602,31 @@ function(view = "lateral", escala = "micro") {
     areas <- df_dk$region[df_dk$hemi == "right" & df_dk$view == "lateral"]
     dados_plot <- mapa_referencia %>% filter(region %in% areas)
     
-    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::dk(), position = position_brain("right lateral"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Córtex Lateral -", ifelse(escala == "macro", "Macro", "Micro")))
+    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::dk(), position = position_brain("right lateral"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Lateral Cortex -", ifelse(scale == "macro", "Macro", "Micro")))
     
   } else if (view == "medial") {
     df_dk <- as.data.frame(ggseg::dk())
     areas <- df_dk$region[df_dk$hemi == "right" & df_dk$view == "medial"]
     dados_plot <- mapa_referencia %>% filter(region %in% areas)
     
-    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::dk(), position = position_brain("right medial"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Córtex Medial -", ifelse(escala == "macro", "Macro", "Micro")))
+    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::dk(), position = position_brain("right medial"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Medial Cortex -", ifelse(scale == "macro", "Macro", "Micro")))
     
   } else if (view == "sagittal") {
     df_aseg <- as.data.frame(ggseg::aseg())
     areas <- df_aseg$region[grepl("sagittal", df_aseg$view, ignore.case = TRUE)]
     dados_plot <- mapa_referencia %>% filter(region %in% areas)
     
-    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::aseg(), position = position_brain("sagittal"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Subcortical (Sagital) -", ifelse(escala == "macro", "Macro", "Micro")))
+    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::aseg(), position = position_brain("sagittal"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Subcortical (Sagittal) -", ifelse(scale == "macro", "Macro", "Micro")))
     
   } else if (view == "coronal") {
     df_aseg <- as.data.frame(ggseg::aseg())
     areas <- df_aseg$region[grepl("coronal_1", df_aseg$view, ignore.case = TRUE)]
     dados_plot <- mapa_referencia %>% filter(region %in% areas)
     
-    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::aseg(), position = position_brain("coronal_1"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Subcortical (Coronal) -", ifelse(escala == "macro", "Macro", "Micro")))
+    p <- ggplot(dados_plot) + geom_brain(atlas = ggseg::aseg(), position = position_brain("coronal_1"), mapping = aes(fill = .data[[coluna]]), color = "black", size = 0.3) + ggtitle(paste("Subcortical (Coronal) -", ifelse(scale == "macro", "Macro", "Micro")))
     
   } else {
-    stop("Corte não encontrado.")
+    stop("Error: unknown view; use lateral, medial, sagittal or coronal.")
   }
 
   # 4. Finalização do Plot

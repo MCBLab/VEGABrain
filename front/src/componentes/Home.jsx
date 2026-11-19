@@ -84,7 +84,7 @@ export default function Home() {
       setTextoListaGenes(e.target.result);
     };
     leitor.onerror = () => {
-      alert('Não foi possível ler o arquivo.');
+      alert('Could not read the file.');
     };
     leitor.readAsText(arquivo);
 
@@ -110,7 +110,7 @@ export default function Home() {
     const buscarComRetry = () => {
       fetch(`${API}${endpoint}`)
         .then((res) => {
-          if (!res.ok) throw new Error("API ligando...");
+          if (!res.ok) throw new Error("API starting up...");
           return res.json();
         })
         .then((dados) => {
@@ -153,7 +153,7 @@ export default function Home() {
     if (!textoListaGenes.trim()) return; 
     
     setCarregandoImagem(true);
-    setSelecionada({ label: "Lista Customizada" }); 
+    setSelecionada({ label: "Custom List" }); 
     atualizarHistorico(textoListaGenes, 'genelist');
 
     // 1. Limpa o aviso da pesquisa anterior para não acumular
@@ -164,7 +164,7 @@ export default function Home() {
     try {
       const params = new URLSearchParams();
       params.append('gene_string', textoListaGenes);
-      params.append('escala', escalaRegiao);
+      params.append('scale', escalaRegiao);
 
       // 2. CHECAGEM RÁPIDA: Quem existe e quem não existe?
       const resValidacao = await fetch(`${API}/validate_genelist`, {
@@ -173,16 +173,16 @@ export default function Home() {
       const dadosValidacao = await resValidacao.json();
 
       // Formata a resposta do R com segurança
-      const listaInvalidos = Array.isArray(dadosValidacao.invalidos) ? dadosValidacao.invalidos : dadosValidacao.invalidos?.[0] || [];
-      const listaValidos = Array.isArray(dadosValidacao.validos) ? dadosValidacao.validos : dadosValidacao.validos?.[0] || [];
+      const listaInvalidos = Array.isArray(dadosValidacao.invalid) ? dadosValidacao.invalid : dadosValidacao.invalid?.[0] || [];
+      const listaValidos = Array.isArray(dadosValidacao.valid) ? dadosValidacao.valid : dadosValidacao.valid?.[0] || [];
 
       // Escalares vem desembrulhados da API atual, mas uma versao mais antiga
       // no Cloud Run ainda manda [false] / [3].
       const desembrulha = (v) => (Array.isArray(v) ? v[0] : v);
-      const ponderado = Boolean(desembrulha(dadosValidacao.ponderado));
+      const ponderado = Boolean(desembrulha(dadosValidacao.weighted));
       const nUp = Number(desembrulha(dadosValidacao.n_up)) || 0;
       const nDown = Number(desembrulha(dadosValidacao.n_down)) || 0;
-      const nSemPeso = Number(desembrulha(dadosValidacao.n_sem_peso)) || 0;
+      const nSemPeso = Number(desembrulha(dadosValidacao.n_unweighted)) || 0;
       setInfoAssinatura(ponderado ? { nUp, nDown, nSemPeso } : null);
 
       // Se houver algum erro, salva no Estado (Isso faz a caixa amarela aparecer!)
@@ -193,14 +193,14 @@ export default function Home() {
       // Sem nenhum log2FC diferente de zero nao ha o que ponderar, e o erro da
       // API voltaria como um 500 generico.
       if (ponderado && nUp === 0 && nDown === 0) {
-        alert("Todos os log2FC informados são zero — não há nada para ponderar.");
+        alert("All submitted log2FC values are zero — there is nothing to weight.");
         setCarregandoImagem(false);
         return;
       }
 
       // Se TUDO estiver errado, para por aqui e avisa
       if (listaValidos.length === 0) {
-        alert("Nenhum dos genes informados foi encontrado na base de dados.");
+        alert("None of the submitted genes was found in the expression data.");
         setCarregandoImagem(false);
         return; 
       }
@@ -209,13 +209,13 @@ export default function Home() {
       const resposta = await fetch(`${API}/plot_genelist_png`, {
         method: 'POST', body: params
       });
-      if (!resposta.ok) throw new Error("Erro");
+      if (!resposta.ok) throw new Error("Request failed");
 
       const blob = await resposta.blob();
       setImagemCustomizada(URL.createObjectURL(blob));
     } catch (erro) {
       console.error(erro);
-      alert("Erro ao processar a lista.");
+      alert("Error processing the list.");
     } finally {
       setCarregandoImagem(false);
     }
@@ -238,10 +238,10 @@ export default function Home() {
   const endpointPlot = (formato) => {
     const sufixo = formato === 'png' ? '_png' : '';
     if (abaAtual === 'gene') {
-      return `${API}/plot_brain${sufixo}?gene=${encodeURIComponent(selecionada.value)}&escala=${escalaRegiao}`;
+      return `${API}/plot_brain${sufixo}?gene=${encodeURIComponent(selecionada.value)}&scale=${escalaRegiao}`;
     }
     if (abaAtual === 'ontology') {
-      return `${API}/plot_ontology${sufixo}?geneset=${encodeURIComponent(selecionada.value)}&escala=${escalaRegiao}`;
+      return `${API}/plot_ontology${sufixo}?geneset=${encodeURIComponent(selecionada.value)}&scale=${escalaRegiao}`;
     }
     return `${API}/plot_genelist${sufixo}`;
   };
@@ -268,24 +268,24 @@ export default function Home() {
         if (abaAtual === 'genelist') {
           const params = new URLSearchParams();
           params.append('gene_string', textoListaGenes);
-          params.append('escala', escalaRegiao);
+          params.append('scale', escalaRegiao);
           opcoesFetch.method = 'POST';
           opcoesFetch.body = params;
         }
 
         const response = await fetch(endpointPlot(formato), opcoesFetch);
-        if (!response.ok) throw new Error("Erro");
+        if (!response.ok) throw new Error("Request failed");
         url = URL.createObjectURL(await response.blob());
       }
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Mapa_${abaAtual}.${formato}`;
+      a.download = `Map_${abaAtual}.${formato}`;
       a.click();
       // Revogar o blob da aba Gene List apagaria a imagem que esta na tela.
       if (!jaBaixado) URL.revokeObjectURL(url);
     } catch (err) {
-      alert(`Erro ao tentar baixar o ${formato.toUpperCase()}.`);
+      alert(`Error downloading the ${formato.toUpperCase()}.`);
     } finally {
       setBaixandoPlot(null);
     }
@@ -297,14 +297,14 @@ export default function Home() {
       let opcoesFetch = {};
 
     if (abaAtual === 'gene') {
-        url = `${API}/data_brain?gene=${selecionada.value}&escala=${escalaRegiao}`;
+        url = `${API}/data_brain?gene=${selecionada.value}&scale=${escalaRegiao}`;
       } else if (abaAtual === 'ontology') {
-        url = `${API}/data_ontology?geneset=${selecionada.value}&escala=${escalaRegiao}`;
+        url = `${API}/data_ontology?geneset=${selecionada.value}&scale=${escalaRegiao}`;
       } else if (abaAtual === 'genelist') {
         url = `${API}/data_genelist`;
         const params = new URLSearchParams();
         params.append('gene_string', textoListaGenes);
-        params.append('escala', escalaRegiao);
+        params.append('scale', escalaRegiao);
         opcoesFetch = { method: 'POST', body: params };
       }
 
@@ -313,11 +313,11 @@ export default function Home() {
       const objUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objUrl;
-      a.download = `Dados_${abaAtual}_${escalaRegiao}.csv`;
+      a.download = `Data_${abaAtual}_${escalaRegiao}.csv`;
       a.click();
       URL.revokeObjectURL(objUrl);
     } catch (err) {
-      alert("Erro ao baixar os dados da tabela.");
+      alert("Error downloading the data table.");
     }
   };
 
@@ -333,7 +333,7 @@ export default function Home() {
     
     try {
       // encodeURIComponent protege nomes complexos na hora de virar URL
-      const urlFetch = `${API}/genes_da_via?geneset=${encodeURIComponent(nomeOntologia)}`;
+      const urlFetch = `${API}/geneset_genes?geneset=${encodeURIComponent(nomeOntologia)}`;
       
       const res = await fetch(urlFetch);
       const dados = await res.json();
@@ -350,8 +350,8 @@ export default function Home() {
       setGenesDaVia(listaLimpa);
 
     } catch (err) {
-      console.error("Erro ao buscar genes da via:", err);
-      setGenesDaVia(["Erro ao carregar os genes."]);
+      console.error("Error fetching gene set members:", err);
+      setGenesDaVia(["Error loading the genes."]);
     } finally {
       setCarregandoGenesVia(false);
     }
@@ -447,7 +447,7 @@ export default function Home() {
                   filterOption={null}
                   styles={{ menu: (base) => ({ ...base, zIndex: 9999 }) }}
                   isLoading={carregandoLista}
-                  placeholder="Digite para buscar..."
+                  placeholder="Type to search..."
                   className="text-sm"
                 />
                 
@@ -458,25 +458,25 @@ export default function Home() {
                       onClick={() => mostrarGenesDaVia ? setMostrarGenesDaVia(false) : buscarGenesDaVia(selecionada.value)}
                       className="text-[10px] font-bold uppercase tracking-widest text-[#58614c] bg-[#e4e9ea] hover:bg-zinc-300 py-2 rounded-lg transition-colors w-full"
                     >
-                      {mostrarGenesDaVia ? 'Esconder Genes da Via' : '👁️ Ver Genes desta Via'}
+                      {mostrarGenesDaVia ? 'Hide Genes in this Set' : '👁️ Show Genes in this Set'}
                     </button>
 
                     {mostrarGenesDaVia && (
                       <div className="bg-white p-3 rounded-lg border border-zinc-200 shadow-inner animate-fade-in">
                         {carregandoGenesVia ? (
-                          <p className="text-xs text-zinc-400 text-center py-4">Carregando genes...</p>
+                          <p className="text-xs text-zinc-400 text-center py-4">Loading genes...</p>
                         ) : (
                           <div className="flex flex-col gap-2">
                             <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-bold text-zinc-500">{genesDaVia.length} genes encontrados no mapa:</span>
+                              <span className="text-[10px] font-bold text-zinc-500">{genesDaVia.length} genes present in the data:</span>
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(genesDaVia.join('\n'));
-                                  alert('Genes copiados!');
+                                  alert('Genes copied!');
                                 }}
                                 className="text-[10px] bg-zinc-100 hover:bg-zinc-200 text-zinc-700 px-2 py-1 rounded"
                               >
-                                Copiar
+                                Copy
                               </button>
                             </div>
                             <textarea
@@ -555,24 +555,24 @@ export default function Home() {
           <div className="bg-[#fff8e6] border border-[#f0dca5] rounded-xl p-5 flex flex-col gap-3 shadow-sm">
             <div className="flex justify-between items-center">
               <p className="text-sm text-[#8c6d1f] font-medium">
-                ⚠️ <strong>{genesInvalidos.length} gene(s)</strong> não foram encontrados no banco e foram ignorados.
+                ⚠️ <strong>{genesInvalidos.length} gene(s)</strong> not found in the data and ignored.
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(genesInvalidos.join('\n'));
-                    alert('Genes copiados para a área de transferência!');
+                    alert('Genes copied to the clipboard!');
                   }}
                   className="text-[11px] font-bold uppercase tracking-widest bg-white border border-[#f0dca5] text-[#8c6d1f] px-4 py-2 rounded-lg hover:bg-[#fcf4dc] transition-colors"
                 >
-                  Copiar Genes
+                  Copy Genes
                 </button>
           
           <button
             onClick={() => setMostrarModalGenes(!mostrarModalGenes)}
             className="text-[11px] font-bold uppercase tracking-widest bg-white border border-[#f0dca5] text-[#8c6d1f] px-4 py-2 rounded-lg hover:bg-[#fcf4dc] transition-colors"
           >
-            {mostrarModalGenes ? 'Esconder Lista' : 'Ver Lista'}
+            {mostrarModalGenes ? 'Hide List' : 'Show List'}
           </button>
         </div>
       </div>
@@ -589,7 +589,7 @@ export default function Home() {
 
           {/* Caixa do Mapa */}
           <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden shadow-sm p-8 flex items-center justify-center min-h-[550px] relative">
-            {carregandoImagem && <p className="absolute font-bold text-[#58614c] animate-pulse z-10 bg-white/80 px-4 py-2 rounded">⏳ Processando mapa...</p>}
+            {carregandoImagem && <p className="absolute font-bold text-[#58614c] animate-pulse z-10 bg-white/80 px-4 py-2 rounded">⏳ Rendering map...</p>}
             {urlImagem && (
               <img 
                 src={urlImagem} 
@@ -615,14 +615,14 @@ export default function Home() {
                 disabled={baixandoPlot !== null}
                 className="flex items-center gap-2 px-6 py-2.5 bg-[#58614c] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
               >
-                {baixandoPlot === 'svg' ? '⏳ Gerando SVG...' : '🖼️ Download Plot (SVG)'}
+                {baixandoPlot === 'svg' ? '⏳ Generating SVG...' : '🖼️ Download Plot (SVG)'}
               </button>
               <button 
                 onClick={() => baixarPlot('png')}
                 disabled={baixandoPlot !== null}
                 className="flex items-center gap-2 px-6 py-2.5 bg-[#58614c] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
               >
-                {baixandoPlot === 'png' ? '⏳ Gerando PNG...' : '🖼️ Download Plot (PNG)'}
+                {baixandoPlot === 'png' ? '⏳ Generating PNG...' : '🖼️ Download Plot (PNG)'}
               </button>
             </div>
           )}
@@ -693,7 +693,7 @@ export default function Home() {
                 borderRadius: '5px', padding: '8px 15px', cursor: 'pointer', fontWeight: 'bold'
               }}
             >
-              Fechar
+              Close
             </button>
 
             {/* Título */}
@@ -740,9 +740,9 @@ export default function Home() {
               textAlign: 'center' 
             }}>
               {[
-                { id: 'lateral', nome: 'Córtex Lateral' },
-                { id: 'medial', nome: 'Córtex Medial' },
-                { id: 'sagittal', nome: 'Subcortical (Sagital)' },
+                { id: 'lateral', nome: 'Lateral Cortex' },
+                { id: 'medial', nome: 'Medial Cortex' },
+                { id: 'sagittal', nome: 'Subcortical (Sagittal)' },
                 { id: 'coronal', nome: 'Subcortical (Coronal)' }
               ].map((corte) => (
                 <button
@@ -779,8 +779,8 @@ export default function Home() {
             }}>
               <img
                 key={`${abaMapaRef}-${escalaMapaRef}`}
-                src={`${API}/plot_reference?view=${abaMapaRef}&escala=${escalaMapaRef}`}
-                alt={`Mapa ${abaMapaRef}`}
+                src={`${API}/plot_reference?view=${abaMapaRef}&scale=${escalaMapaRef}`}
+                alt={`Reference map, ${abaMapaRef} view`}
                 style={{ 
                   maxWidth: '70%', 
                   height: 'auto', 
