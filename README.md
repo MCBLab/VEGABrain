@@ -8,6 +8,7 @@ A Shiny web application for visualizing gene expression throughout the developme
 
 - **Gene Expression Mapping**: Search for any HGNC gene name to see its spatial expression pattern across 5 broad developmental stages (1st Trimester to Adult).
 - **GSVA-Enrichr Mode**: Upload a custom list of genes (gene signature) to calculate and visualize its activity across brain regions using GSVA.
+- **Per-area significance**: For a gene list, mark the brain areas it is significantly associated with, by two complementary tests (see below).
 - **High-Quality Exports**: Download brain maps in SVG or TIFF formats for publications.
 - **Interactive UI**: Built with a modern, responsive interface using `shinythemes` (Cerulean).
 
@@ -52,6 +53,22 @@ The API also requires the `ontologyssGSEA.csv` file to serve the pathway visuali
 3. Run the **"Ontology create dataset"** code chunk inside the document. 
 
 This will load the optimized data, fetch gene sets from `msigdbr`, run the GSVA calculations, and output the final `ontologyssGSEA.csv` file to your root directory.
+
+### 3. Per-area significance (no build step)
+The Gene List tab can test, for every BrainSpan structure (or region class) and developmental window, whether the submitted list is significantly associated with it. Two tests answer two different questions:
+
+| | `significance=score` (asterisk) | `significance=markers` (diamond, or up/down triangles for log2FC lists) |
+|---|---|---|
+| question | does the list's ssGSEA score peak in this area beyond random genes? | are this area's specific genes over-represented in the list, and which ones? |
+| unit | 87 structure x window cells, 70 with >= 3 donors | region classes (neocortex, hippocampus, amygdala, striatum, thalamus, cerebellum) vs each other, and neocortical areas vs the rest of neocortex; 36 cells with >= 10 markers and >= 3 informative donors |
+| test | within-window deviation ranked against 4,000 random gene sets of the same size and expression level; BH; must survive leaving any single donor out | markers from limma per window (`~ 0 + structure + donor`; q < 0.05, log2FC >= 1, mean >= 1); one-sided Fisher's exact test inside the window's expressed MSigDB genes; BH; >= 2 overlapping genes |
+| code | `stats/enrichment_stats.R` | `stats/marker_stats.R` |
+| calibration | `Rscript stats/validate_stats.R` | `Rscript stats/validate_markers.R` |
+
+`/plot_genelist`, `/plot_genelist_png` and `/data_genelist` take `significance=none|score|markers` (the CSV gains per-region `enriched_*` / `q_*` columns), and `POST /area_enrichment` (`test=score|markers|both`) returns every tested cell as JSON, with the overlapping genes for the marker test. A test needs at least 5 genes found in the data (per direction for the marker test). Everything is computed from `dados_otimizados.rds` at request time: the first request after a start builds the tables (~20 s), and later ones take ~1–3 s. The marker test needs the Bioconductor package `limma`.
+
+### 4. Developmental stage (no build step)
+`POST /stage_enrichment` asks in which developmental window a gene list peaks, which the per-area tests cannot see (they compare areas within one window). The list's ssGSEA score per window, with the six PsychENCODE regions (NCX, HIP, AMY, STR, MD, CBC) weighted equally, is centred over the five windows and ranked against 4,000 expression-matched random gene sets: two-sided, BH over the windows, and a hit must survive leaving any single donor out. It runs for the whole brain and inside each region (region x window cells with fewer than 3 donors are reported, not tested); a log2FC list is also split into up- and down-regulated genes. Code: `stats/stage_stats.R`. `/data_genelist` with `significance=all` returns the columns of all three tests in one CSV.
 
 ## 🏃 Running the Application
 

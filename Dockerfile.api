@@ -54,6 +54,18 @@ COPY preparaDados.R /api/
 
 RUN Rscript preparaDados.R
 
+# limma, for the marker-based area test (stats/marker_stats.R). Installed after
+# preparaDados.R on purpose: it changes nothing that script builds, and leaving
+# the layers above untouched lets Docker reuse them (preparaDados.R is slow).
+RUN R -e "options(repos = c(CRAN = Sys.getenv('R_REPOS'))); \
+    BiocManager::install('limma', update = FALSE, ask = FALSE, Ncpus = 1)" \
+    && R -e "stopifnot(requireNamespace('limma', quietly = TRUE))"
+
+# Significance tests sourced by plumber.R: per area (score, markers) and per
+# developmental stage. Nothing to precompute: rank tables and marker genes are
+# built from dados_otimizados.rds on first use.
+COPY stats/enrichment_stats.R stats/marker_stats.R stats/stage_stats.R /api/stats/
+
 COPY plumber.R /api/
 
 # Cloud Run injeta a porta via $PORT; 8080 e o default local
