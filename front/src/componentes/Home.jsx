@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { Fragment, useState, useEffect, useRef } from 'react';
 import Select from 'react-select';
 
 // URL da API, injetada em build time via VITE_API_URL (no GitHub Pages aponta
@@ -41,6 +41,59 @@ const parseAssinatura = (texto) => {
 
 const separarGenes = (texto) => parseAssinatura(texto).map((g) => g.gene);
 
+// Per-area significance tests offered by the API (significance= on the Gene
+// List endpoints). The text under the control is the only place the screen
+// says what a mark means before the map arrives; the map caption repeats it.
+const TESTES_SIGNIFICANCIA = [
+  { value: 'none', label: 'Off', help: 'No significance test: the map shows the score only.' },
+  { value: 'score', label: 'Score (*)',
+    help: "Asterisk: the list's score in this area beats 4,000 random gene sets of the same size and expression level (q < 0.05), and still does when any single donor is left out." },
+  { value: 'markers', label: 'Markers (◆)',
+    help: "Diamond: genes specific to this area are over-represented in the list (Fisher's exact test, q < 0.05, at least 2 shared genes). With log2FC values, triangles mark up- (▲) and down-regulated (▼) genes separately." },
+];
+
+const formataQ = (q) => (q === null || q === undefined ? '—' : q < 0.001 ? q.toExponential(1) : q.toFixed(3));
+
+// Stage test (/stage_enrichment): one row per (list, region, window). z is
+// centred over the 5 windows, so blue = lower than random genes there, red =
+// higher. The panel only draws it; the numbers go to Download Data (CSV).
+const JANELAS_ESTAGIO = ['1st trimester', '2nd trimester', '3rd trimester', 'Infant', 'Adult'];
+const JANELAS_CURTAS = { '1st trimester': '1st', '2nd trimester': '2nd', '3rd trimester': '3rd', Infant: 'Inf', Adult: 'Adu' };
+const ROTULOS_ESTAGIO = { all: 'All genes', up: '▲ Up-regulated', down: '▼ Down-regulated' };
+const ROTULOS_CURTOS = { all: 'All', up: '▲ Up', down: '▼ Down' };
+// Same navy-to-maroon palette as the paper figures, capped at |z| = 10.
+const ESCALA_Z = [[-10, [26, 49, 139]], [-5, [79, 113, 190]], [0, [242, 242, 242]], [5, [209, 73, 140]], [10, [122, 8, 69]]];
+const corZ = (z, alfa = 1) => {
+  const v = Math.max(-10, Math.min(10, Number(z) || 0));
+  for (let i = 1; i < ESCALA_Z.length; i++) {
+    const [z0, c0] = ESCALA_Z[i - 1];
+    const [z1, c1] = ESCALA_Z[i];
+    if (v <= z1) {
+      const t = (v - z0) / (z1 - z0);
+      return `rgba(${c0.map((c, j) => Math.round(c + t * (c1[j] - c))).join(',')},${alfa})`;
+    }
+  }
+  return `rgba(122,8,69,${alfa})`;
+};
+// Whole brain first, then PsychENCODE's six regions (the API's `region` field).
+const REGIOES_ESTAGIO = [
+  { id: 'brain', rotulo: 'Brain', nome: 'Whole brain: the six regions below, equally weighted' },
+  { id: 'NCX', rotulo: 'NCX', nome: 'Neocortex (11 areas, equally weighted)' },
+  { id: 'HIP', rotulo: 'HIP', nome: 'Hippocampus' },
+  { id: 'AMY', rotulo: 'AMY', nome: 'Amygdala' },
+  { id: 'STR', rotulo: 'STR', nome: 'Striatum' },
+  { id: 'MD', rotulo: 'MD', nome: 'Mediodorsal nucleus of the thalamus (dorsal thalamus in the 1st trimester)' },
+  { id: 'CBC', rotulo: 'CBC', nome: 'Cerebellar cortex (whole cerebellum in early samples)' },
+];
+// Short line per list: the windows where the whole brain peaks.
+const resumoEstagio = (linhas) => {
+  const picos = linhas.filter((l) => l.region === 'brain' && l.enriched && l.direction === 'higher');
+  return picos.length ? `peaks in ${picos.map((l) => JANELAS_CURTAS[l.window]).join(', ')}` : 'no whole-brain peak';
+};
+// Cells with too few donors keep a pale tint of their colour under a grey hatch:
+// shown, not tested.
+const HACHURA = 'repeating-linear-gradient(135deg, rgba(113,113,122,0.22) 0 2px, transparent 2px 6px)';
+
 export default function Home() {
   const [abaAtual, setAbaAtual] = useState('genelist');
   const [escalaRegiao, setEscalaRegiao] = useState('micro');
@@ -57,8 +110,16 @@ export default function Home() {
   const [historicoOntology, setHistoricoOntology] = useState([]);
   const [historicoGenelist, setHistoricoGenelist] = useState([]);
   const [genesInvalidos, setGenesInvalidos] = useState([]);
+  // Errors show as a dismissible line above the map instead of an alert() popup.
+  const [aviso, setAviso] = useState(null);
   const [infoAssinatura, setInfoAssinatura] = useState(null);
   const [mostrarModalGenes, setMostrarModalGenes] = useState(false);
+
+  // Which test marks the map, and the per-cell results of both tests (table).
+  const [testeSignificancia, setTesteSignificancia] = useState('score');
+  // Which developmental window the list peaks in (stage test).
+  const [resultadoEstagio, setResultadoEstagio] = useState(null);
+  const [carregandoEstagio, setCarregandoEstagio] = useState(false);
 
   const [genesDaVia, setGenesDaVia] = useState([]);
   const [mostrarGenesDaVia, setMostrarGenesDaVia] = useState(false);
@@ -84,7 +145,7 @@ export default function Home() {
       setTextoListaGenes(e.target.result);
     };
     leitor.onerror = () => {
-      alert('Could not read the file.');
+      setAviso('Could not read the file.');
     };
     leitor.readAsText(arquivo);
 
@@ -158,13 +219,16 @@ export default function Home() {
 
     // 1. Limpa o aviso da pesquisa anterior para não acumular
     setGenesInvalidos([]);
+    setAviso(null);
     setInfoAssinatura(null);
     setMostrarModalGenes(false);
+    setResultadoEstagio(null);
 
     try {
       const params = new URLSearchParams();
       params.append('gene_string', textoListaGenes);
       params.append('scale', escalaRegiao);
+      params.append('significance', testeSignificancia);
 
       // 2. CHECAGEM RÁPIDA: Quem existe e quem não existe?
       const resValidacao = await fetch(`${API}/validate_genelist`, {
@@ -193,14 +257,14 @@ export default function Home() {
       // Sem nenhum log2FC diferente de zero nao ha o que ponderar, e o erro da
       // API voltaria como um 500 generico.
       if (ponderado && nUp === 0 && nDown === 0) {
-        alert("All submitted log2FC values are zero — there is nothing to weight.");
+        setAviso('All submitted log2FC values are zero — there is nothing to weight.');
         setCarregandoImagem(false);
         return;
       }
 
       // Se TUDO estiver errado, para por aqui e avisa
       if (listaValidos.length === 0) {
-        alert("None of the submitted genes was found in the expression data.");
+        setAviso('None of the submitted genes was found in the expression data.');
         setCarregandoImagem(false);
         return; 
       }
@@ -213,11 +277,30 @@ export default function Home() {
 
       const blob = await resposta.blob();
       setImagemCustomizada(URL.createObjectURL(blob));
+
+      // The stage panel is fetched after the image so it never delays the map.
+      if (testeSignificancia !== 'none') buscarEstagio();
     } catch (erro) {
       console.error(erro);
-      alert("Error processing the list.");
+      setAviso('Error processing the list.');
     } finally {
       setCarregandoImagem(false);
+    }
+  };
+
+  const buscarEstagio = async () => {
+    setCarregandoEstagio(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('gene_string', textoListaGenes);
+      const res = await fetch(`${API}/stage_enrichment`, { method: 'POST', body: params });
+      if (!res.ok) throw new Error('Request failed');
+      setResultadoEstagio(await res.json());
+    } catch (erro) {
+      console.error(erro);
+      setResultadoEstagio({ erro: true });
+    } finally {
+      setCarregandoEstagio(false);
     }
   };
 
@@ -269,6 +352,7 @@ export default function Home() {
           const params = new URLSearchParams();
           params.append('gene_string', textoListaGenes);
           params.append('scale', escalaRegiao);
+          params.append('significance', testeSignificancia);
           opcoesFetch.method = 'POST';
           opcoesFetch.body = params;
         }
@@ -285,7 +369,7 @@ export default function Home() {
       // Revogar o blob da aba Gene List apagaria a imagem que esta na tela.
       if (!jaBaixado) URL.revokeObjectURL(url);
     } catch (err) {
-      alert(`Error downloading the ${formato.toUpperCase()}.`);
+      setAviso(`Error downloading the ${formato.toUpperCase()}.`);
     } finally {
       setBaixandoPlot(null);
     }
@@ -305,6 +389,9 @@ export default function Home() {
         const params = new URLSearchParams();
         params.append('gene_string', textoListaGenes);
         params.append('scale', escalaRegiao);
+        // With any test on, the CSV carries all of them: both area tests and the
+        // stage test, as columns of each (window, region) row.
+        params.append('significance', testeSignificancia === 'none' ? 'none' : 'all');
         opcoesFetch = { method: 'POST', body: params };
       }
 
@@ -317,9 +404,12 @@ export default function Home() {
       a.click();
       URL.revokeObjectURL(objUrl);
     } catch (err) {
-      alert("Error downloading the data table.");
+      setAviso('Error downloading the data table.');
     }
   };
+
+  // The stage strip sits beside the map on the Gene List tab once a test ran.
+  const mostrarEstagio = abaAtual === 'genelist' && imagemCustomizada && (carregandoEstagio || resultadoEstagio);
 
   // Histórico ativo atual
   const historicoAtivo = abaAtual === 'gene' ? historicoGene : abaAtual === 'ontology' ? historicoOntology : historicoGenelist;
@@ -357,12 +447,15 @@ export default function Home() {
     }
   };
 
+  // Three columns on wide screens -- controls | map | stage. On lg+ the page is
+  // exactly the height of <main>: every column is capped at it, the map image
+  // scales to fit, and a column that still cannot fit scrolls on its own.
   return (
-    <section className="max-w-7xl mx-auto px-12 py-12">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+    <section className="max-w-[1800px] mx-auto px-6 py-4 lg:h-full">
+      <div className="flex flex-col lg:flex-row gap-6 items-start lg:h-full">
         
         {/* DIVISÃO ENTRE ABAS MICRO - MACRO REGIÃO */}
-        <div className="lg:col-span-4 bg-[#f2f4f4] rounded-xl p-8 border border-zinc-100 h-fit">
+        <div className="w-full lg:w-[330px] shrink-0 bg-[#f2f4f4] rounded-xl p-6 border border-zinc-100 h-fit lg:max-h-full lg:overflow-y-auto">
 
           <div className="flex bg-zinc-300 p-1 rounded-lg mb-4">
             {['micro', 'macro'].map((escala) => (
@@ -471,8 +564,7 @@ export default function Home() {
                               <span className="text-[10px] font-bold text-zinc-500">{genesDaVia.length} genes present in the data:</span>
                               <button
                                 onClick={() => {
-                                  navigator.clipboard.writeText(genesDaVia.join('\n'));
-                                  alert('Genes copied!');
+                                  navigator.clipboard.writeText(genesDaVia.join('\n') + '\n');
                                 }}
                                 className="text-[10px] bg-zinc-100 hover:bg-zinc-200 text-zinc-700 px-2 py-1 rounded"
                               >
@@ -500,6 +592,29 @@ export default function Home() {
                   placeholder={"SOX10\nTSPAN6\nGAD1"} 
                   className="w-full px-4 py-3 bg-white border border-transparent focus:border-[#58614c] rounded-lg text-sm font-mono outline-none resize-y"
                 ></textarea>
+
+                {/* Applies to plain lists (ssGSEA) and log2FC signatures alike. */}
+                <div className="mt-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-widest text-[#58614c] mb-1.5">
+                    Mark significant areas
+                  </span>
+                  <div className="flex bg-[#e4e9ea] p-1 rounded-lg">
+                    {TESTES_SIGNIFICANCIA.map((t) => (
+                      <button
+                        key={t.value}
+                        onClick={() => setTesteSignificancia(t.value)}
+                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all ${testeSignificancia === t.value ? 'bg-white text-[#58614c]' : 'text-[#596061]'}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+                    {TESTES_SIGNIFICANCIA.find((t) => t.value === testeSignificancia).help}
+                    {testeSignificancia !== 'none' && ' Needs at least 5 genes found in the data.'}
+                  </p>
+                </div>
+
                 <button 
                   onClick={gerarMapaLista}
                   className="w-full mt-4 bg-[#58614c] text-white py-3 rounded-lg font-bold text-xs uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all"
@@ -548,8 +663,15 @@ export default function Home() {
 
         </div>
 
-        {/* COLUNA DIREITA (Visualização e Botões) */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        {/* COLUNA DIREITA: mapa + botoes, e o bloco de estagio ao lado (xl) ou abaixo */}
+        <div className="flex-1 min-w-0 w-full flex flex-col xl:flex-row gap-6 items-start lg:max-h-full lg:overflow-y-auto xl:h-full xl:overflow-visible">
+        <div className="flex-1 min-w-0 w-full flex flex-col gap-3">
+          {aviso && (
+            <div className="flex items-center justify-between gap-3 bg-[#fff8e6] border border-[#f0dca5] rounded-xl px-4 py-2.5 text-sm text-[#8c6d1f]">
+              <span>⚠️ {aviso}</span>
+              <button onClick={() => setAviso(null)} className="text-[#8c6d1f] hover:opacity-70 text-base leading-none" aria-label="Dismiss">×</button>
+            </div>
+          )}
           
         {genesInvalidos.length > 0 && (
           <div className="bg-[#fff8e6] border border-[#f0dca5] rounded-xl p-5 flex flex-col gap-3 shadow-sm">
@@ -560,8 +682,7 @@ export default function Home() {
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(genesInvalidos.join('\n'));
-                    alert('Genes copied to the clipboard!');
+                    navigator.clipboard.writeText(genesInvalidos.join('\n') + '\n');
                   }}
                   className="text-[11px] font-bold uppercase tracking-widest bg-white border border-[#f0dca5] text-[#8c6d1f] px-4 py-2 rounded-lg hover:bg-[#fcf4dc] transition-colors"
                 >
@@ -587,13 +708,14 @@ export default function Home() {
     </div>
   )}
 
-          {/* Caixa do Mapa */}
-          <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden shadow-sm p-8 flex items-center justify-center min-h-[550px] relative">
+          {/* Caixa do Mapa: the image is capped at the window height (minus the
+              header, page padding and download buttons) so it never scrolls. */}
+          <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden shadow-sm p-4 flex items-center justify-center min-h-[400px] relative">
             {carregandoImagem && <p className="absolute font-bold text-[#58614c] animate-pulse z-10 bg-white/80 px-4 py-2 rounded">⏳ Rendering map...</p>}
             {urlImagem && (
               <img 
                 src={urlImagem} 
-                className="max-w-full h-auto transition-opacity duration-300" 
+                className="max-w-full w-auto h-auto max-h-[calc(100vh-230px)] transition-opacity duration-300" 
                 style={{ opacity: carregandoImagem ? 0.2 : 1 }}
                 onLoad={() => setCarregandoImagem(false)}
                 alt="Brain Map"
@@ -603,29 +725,124 @@ export default function Home() {
 
           {/* Botões de Download */}
           {urlImagem && (
-            <div className="flex gap-4 justify-end">
+            <div className="flex flex-wrap gap-3 justify-end">
               <button 
                 onClick={baixarDados}
-                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:border-zinc-300 hover:bg-zinc-50 transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 py-2.5 whitespace-nowrap bg-white border border-zinc-200 text-zinc-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:border-zinc-300 hover:bg-zinc-50 transition-all shadow-sm"
               >
                 📊 Download Data (CSV)
               </button>
               <button 
                 onClick={() => baixarPlot('svg')}
                 disabled={baixandoPlot !== null}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#58614c] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
+                className="flex items-center gap-2 px-4 py-2.5 whitespace-nowrap bg-[#58614c] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
               >
                 {baixandoPlot === 'svg' ? '⏳ Generating SVG...' : '🖼️ Download Plot (SVG)'}
               </button>
               <button 
                 onClick={() => baixarPlot('png')}
                 disabled={baixandoPlot !== null}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#58614c] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
+                className="flex items-center gap-2 px-4 py-2.5 whitespace-nowrap bg-[#58614c] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
               >
                 {baixandoPlot === 'png' ? '⏳ Generating PNG...' : '🖼️ Download Plot (PNG)'}
               </button>
             </div>
           )}
+
+        </div>
+
+        {/* Stage test: its own card, right of the map on wide screens */}
+        {mostrarEstagio && (
+          <div className="w-full xl:w-[240px] shrink-0 bg-white border border-zinc-100 rounded-xl shadow-sm p-4 flex flex-col gap-3 xl:max-h-full xl:overflow-y-auto">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#58614c]">Developmental stage</span>
+              {carregandoEstagio && <p className="text-[11px] text-[#58614c] animate-pulse">⏳ Testing stages...</p>}
+              {resultadoEstagio?.erro && <p className="text-[11px] text-[#8c6d1f]">Could not compute the stage test.</p>}
+              {resultadoEstagio && !resultadoEstagio.erro && resultadoEstagio.reason && (
+                <p className="text-[11px] text-zinc-500">Not tested — {resultadoEstagio.reason}.</p>
+              )}
+              {resultadoEstagio && !resultadoEstagio.erro && !resultadoEstagio.reason && (() => {
+                const linhas = resultadoEstagio.rows || [];
+                const listas = ['all', 'up', 'down'].filter((l) => linhas.some((r) => r.list === l));
+                const celula = (lista, regiao, janela) =>
+                  linhas.find((r) => r.list === lista && r.region === regiao && r.window === janela);
+                const doadores = (janela) => celula('all', 'brain', janela)?.n_donors;
+                const skipped = resultadoEstagio.skipped || [];
+                return (
+                  <>
+                    <table className="text-[10px] self-start" style={{ borderCollapse: 'separate', borderSpacing: '2px' }}>
+                      <thead>
+                        <tr>
+                          <th />
+                          {JANELAS_ESTAGIO.map((w) => (
+                            <th key={w} className="font-bold text-zinc-500 text-center w-[28px]" title={`${w}, ${doadores(w)} donors`}>
+                              {JANELAS_CURTAS[w]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listas.map((l) => (
+                          <Fragment key={l}>
+                            {listas.length > 1 && (
+                              <tr>
+                                <td colSpan={JANELAS_ESTAGIO.length + 1} className="pt-1 font-bold text-zinc-700 whitespace-nowrap">
+                                  {ROTULOS_ESTAGIO[l]}
+                                </td>
+                              </tr>
+                            )}
+                            {REGIOES_ESTAGIO.map((r) => (
+                              <tr key={r.id}>
+                                <td className={`pr-1.5 py-0 leading-[14px] whitespace-nowrap ${r.id === 'brain' ? 'font-bold text-zinc-700' : 'text-zinc-500'}`} title={r.nome}>
+                                  {r.rotulo}
+                                </td>
+                                {JANELAS_ESTAGIO.map((w) => {
+                                  const c = celula(l, r.id, w);
+                                  if (!c) return <td key={w} />;
+                                  const marca = !c.tested ? '' : c.enriched ? '★' : c.q < 0.05 ? '○' : '';
+                                  const estilo = c.tested
+                                    ? { background: corZ(c.z), color: Math.abs(c.z) > 4 ? 'white' : '#27272a' }
+                                    : { backgroundColor: corZ(c.z, 0.3), backgroundImage: HACHURA };
+                                  const dica = c.tested
+                                    ? `${r.nome}, ${w}: z = ${c.z}; q = ${formataQ(c.q)}; ${c.n_donors} donors; worst p leaving one donor out: ${c.p_loo ?? '—'}`
+                                    : `${r.nome}, ${w}: not tested, ${c.n_donors} donors (needs 3); z = ${c.z}`;
+                                  return (
+                                    <td key={w} className="h-[16px] p-0 rounded-sm text-center leading-none text-[9px]" style={estilo} title={dica}>
+                                      {marca}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="flex flex-col gap-0.5 text-[10px] text-zinc-600 w-full max-w-[240px]">
+                      {listas.map((l) => (
+                        <span key={l}><strong>{listas.length > 1 ? ROTULOS_CURTOS[l] : 'Whole brain'}:</strong> {resumoEstagio(linhas.filter((r) => r.list === l))}</span>
+                      ))}
+                      {skipped.length > 0 && (
+                        <span>{skipped.map((s) => (s === 'up' ? 'Up' : 'Down')).join(' and ')}-regulated genes not tested: fewer than 5.</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 text-[10px] text-zinc-500 w-full max-w-[240px]">
+                      <div className="h-2 rounded-sm" style={{ background: `linear-gradient(to right, ${[-10, -5, 0, 5, 10].map((z) => corZ(z)).join(', ')})` }} />
+                      <div className="flex justify-between"><span>lower</span><span>z vs random genes</span><span>higher</span></div>
+                      <span>★ q &lt; 0.05, robust to any one donor</span>
+                      <span>○ q &lt; 0.05, rests on one donor</span>
+                      <span className="flex items-center gap-1">
+                        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(161,161,170,0.25)', backgroundImage: HACHURA }} />
+                        fewer than 3 donors, not tested
+                      </span>
+                      <span className="text-zinc-400 leading-snug">
+                        Brain: six regions, equal weight. Hover for z and q; values in the CSV.
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
+          </div>
+        )}
 
         </div>
 
