@@ -45,7 +45,8 @@ publication/
 │   ├── genes/                numbers behind the panels (CSV) + Fig. 5's input table
 │   └── make_figures.R        offline vector mirror of Figs. 2-4 (pinned ggseg)
 ├── supplementary/
-│   └── S1_region_mapping.csv   Supplementary File 1, the region mapping
+│   ├── S1_region_mapping.csv   Supplementary File 1, the region mapping
+│   └── S2_signatures.xlsx      Supplementary Table 2, every gene signature used (one tab each)
 ├── references/               20 PDFs of cited works
 └── IMPLEMENTATION.md         this file
 ```
@@ -155,6 +156,7 @@ sort(table(sub("_.*", "", names(gs))), decreasing = TRUE)
 | Fig. 5 Ethanol in cerebral organoids (log2FC list): score test + stage test | `fig:organoid` | **real** | `figures/make_panels.R fig5` |
 | Table 2 Calibration of the significance tests | `tab:tests` | **real** | `stats/validate_stats.R`, `stats/validate_markers.R`, stage calibration (numbers in `stats/stage_stats.R`) |
 | Supplementary File 1 | — | **real** — copy of the tool's `mapeamento_regioes.csv` | by hand (see below) |
+| Supplementary Table 2 | — | **real** — Figs. 3-5 lists + Calibration positive controls, with `found_in_BrainSpan` as the Gene List tab reports it; README counts are formulas | by hand (2026-11-26): gene sets from `genesets_list.rds`, Fig. 5 from `figures/genes/fig5_organoid_arzua2020.csv` |
 | Table 1 Data summary | `tab:data` | **real** | — |
 | Table 2 API endpoints | `tab:api` | **real** | `plumber.R` |
 | Table 3 Response times | `tab:perf` | cold start real, warm `[TODO]` | benchmark script (to write) |

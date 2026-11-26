@@ -83,8 +83,8 @@ data in two and three dimensions \citep{Cao2023}. Neither, however, scores a
 gene set across a human developmental parcellation
 (Section~\ref{sec:comparison}).
 
-The second option is to do it yourself. Excellent programmatic brain-plotting
-tools exist---\texttt{ggseg} and \texttt{ggseg3d} \citep{Mowinckel2020} and
+The second option would be through brain-plotting
+tools as---\texttt{ggseg} and \texttt{ggseg3d} \citep{Mowinckel2020} and
 \texttt{cerebroViz} \citep{Bahl2017} in R, \texttt{neuromaps} in Python
 \citep{Markello2022}, and \texttt{abagen} for the adult Allen Human Brain Atlas
 \citep{Hawrylycz2012,Markello2021}. But that route presupposes a user who
@@ -127,7 +127,7 @@ genes of the same expression level, and reports the developmental windows in
 which it peaks, so that a map can be read as a result rather than only as a
 picture. Both the maps and the numbers behind them are exportable, so
 that VEGABrain is a starting point for downstream analysis, 
-consistent with the FAIR principles for reusable research data
+consistent with reusable research data
 \citep{Wilkinson2016}.
 
 %%==================================================================%%
@@ -304,9 +304,12 @@ reflecting that development is the dominant axis of variation in brain
 expression, which is why the stage test reports an effect size ($z$) for every
 window. Positive controls behaved as expected: eight striatal markers
 (\emph{PPP1R1B}, \emph{DRD1}, \emph{DRD2} and others) mapped to the striatum in
-all four testable windows and nowhere else, and astrocyte, myelin and cell-cycle
-sets peaked in the third trimester, after birth and in the first two trimesters,
-respectively.
+all four testable windows and nowhere else, and the astrocyte-development,
+myelin-assembly and cell-cycle sets (\texttt{GOBP\_ASTROCYTE\_DEVELOPMENT},
+\texttt{GOBP\_MYELIN\_ASSEMBLY}, \texttt{HALLMARK\_G2M\_CHECKPOINT} and
+\texttt{HALLMARK\_E2F\_TARGETS}) peaked in the third trimester, after birth and
+in the first two trimesters, respectively. Every list used in this work is given
+in Supplementary Table~2.
 
 \subsection{Implementation}\label{sec:impl}
 
@@ -384,7 +387,7 @@ Its map peaks in the third trimester, in cortex and subcortex alike
 (Figure~\ref{fig:ontology}a). The composite score is informative here: the
 individual genes of the term are noisy across 42 sparsely sampled regions,
 whereas the ssGSEA summary of its 42 genes is not. Submitting those genes in
-gene-list mode tests the reading directly (Figure~\ref{fig:ontology}b): against
+gene-list mode (Supplementary Table~2) tests the reading directly (Figure~\ref{fig:ontology}b): against
 random genes of the same expression level, the term is higher in the third
 trimester (whole-brain $z = 6.1$; neocortex $4.7$, cerebellum $4.3$) and lower in
 the first ($z = -2.6$). The hippocampus, amygdala, striatum and thalamus show the
@@ -414,7 +417,8 @@ halves of a signature can belong to different areas or stages.
 
 Figure~\ref{fig:autism} applies the three tests to a list whose developmental
 answer is known from independent work: the 262 genes of the Human Phenotype
-Ontology term \texttt{HP\_AUTISM} that are present in BrainSpan. Autism risk
+Ontology term \texttt{HP\_AUTISM} that are present in BrainSpan (Supplementary
+Table~2). Autism risk
 genes converge on mid-fetal cortical development
 \citep{Willsey2013,Parikshak2013}. The marker test, drawn on the map
 (Figure~\ref{fig:autism}a), asks which areas' specific genes the list contains,
@@ -432,9 +436,7 @@ second trimester (primary motor and somatosensory cortex, inferolateral temporal
 cortex), in infancy and in adulthood. The term is broader than a curated risk
 list---it includes syndromic genes such as the Bardet--Biedl ciliopathy
 family---so the effect sizes are moderate, yet the three tests agree on a
-prenatal, cortical reading. They are complementary by design: on 100 MSigDB
-sets the two area tests agreed far more than by chance (odds ratio 26), but each
-found cells the other missed.
+prenatal, cortical reading.
 
 \subsection{A signature with fold changes: ethanol in cerebral organoids}\label{sec:organoid}
 
@@ -442,7 +444,8 @@ A list can also carry the log2 fold changes of a differential-expression
 result. \citet{Arzua2020} exposed two-month-old cerebral organoids, derived from
 human induced pluripotent stem cells, to 50\,mM ethanol for 6\,h, and report 199
 genes changed more than twofold ($P < 0.05$), 162 up and 37 down. Submitting
-that table as published, with signed log2 fold changes, gives a weighted map of
+that table as published, with signed log2 fold changes (Supplementary
+Table~2), gives a weighted map of
 the 173 genes found in BrainSpan, 141 up and 32 down
 (Figure~\ref{fig:organoid}). Cerebral organoids of this age resemble the early
 and mid-fetal neocortex \citep{Camp2015,Gordon2021}, and the stage test places
@@ -457,13 +460,7 @@ two trimesters), while the 32 it lowered peak in no window. The score test marks
 after birth (Figure~\ref{fig:organoid}a): within each window, the signature
 stands out in the cortex rather than in subcortical structures. The marker test
 agrees, placing raised genes such as \emph{MEF2C}, \emph{RORB} and
-\emph{KCNV1} among the neocortex markers of all five windows. Two cautions
-concern the input rather than the map. None of the 199 genes reached a false
-discovery rate below 0.19 in the original study, and a bulk change measured 6\,h
-after exposure cannot by itself separate a change in gene regulation from a
-change in the cells present. VEGABrain shows where and when the genes of such a
-signature are normally active; whether the exposure acts there is a question for
-the experiment.
+\emph{KCNV1} among the neocortex markers of all five windows.
 
 %%------------------------------------------------------------------%%
 %% Figures 2-5 (placeholders in this draft -- see IMPLEMENTATION.md)
@@ -712,7 +709,7 @@ pastes.
 
 \subsection{Limitations}\label{sec:limitations}
 
-Several limitations bound the interpretation of any map produced here, and the
+Some limitations bound the interpretation of any map produced here, and the
 interface is designed to keep them visible rather than to smooth them over.
 First, donor support is small and uneven: each developmental window rests on 5
 to 14 donors, and not every structure is sampled in every window. Donor counts
@@ -781,6 +778,20 @@ subcortical, or cerebellum). A parcel fed by two
 structures appears on two rows (thalamus, cerebellum), and the thalamus is
 listed under both \texttt{Thalamus} and \texttt{Thalamus Proper}, the names it
 carries in different FreeSurfer \texttt{aseg} versions.
+
+\textbf{Supplementary Table 2} (\texttt{S2\_signatures.xlsx}) gives every gene
+signature used in this work, one tab per signature: the lists of
+Figures~\ref{fig:ontology}, \ref{fig:autism} and~\ref{fig:organoid}
+(\texttt{GOBP\_ASTROCYTE\_DEVELOPMENT}, \texttt{HP\_AUTISM} and the ethanol
+signature of \citealp{Arzua2020}) and the positive controls of
+Section~\ref{sec:tests} (eight striatal markers, \texttt{GOBP\_MYELIN\_ASSEMBLY},
+\texttt{HALLMARK\_G2M\_CHECKPOINT} and \texttt{HALLMARK\_E2F\_TARGETS}).
+Column \texttt{gene} is what was submitted to the gene-list mode, and
+\texttt{found\_in\_BrainSpan} marks the symbols present in the expression
+matrix, which are the only ones that enter a map or a test. The tab for
+\citet{Arzua2020} keeps the source table's fold change, direction, $P$ and
+false discovery rate, and the signed log2 fold change submitted with each gene.
+A README tab gives each signature's source and the counts quoted in the text.
 
 \bmhead{Acknowledgements}
 
