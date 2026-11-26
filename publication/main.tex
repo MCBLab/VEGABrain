@@ -43,7 +43,7 @@ developing human brain}
 %%==================================================================%%
 
 \abstract{
-  RNA sequencing datasets are widely reused resources in developmental neuroscience, yet inspecting them spatially remains unclear and difficult. Here, we present VEGABrain, an openly accessible web tool that renders bulk RNA-seq onto brain cortical and subcortical atlas surfaces across five human developmental windows spanning the first trimester to adulthood. Beyond single-gene maps, VEGABrain contributes a composite per-region enrichment layer using single-sample gene set enrichment analysis (ssGSEA) scores precomputed for 18{,}650 gene sets drawn from Gene Ontology, Reactome, KEGG, BioCarta, the Human Phenotype Ontology and the MSigDB hallmark collection, and aggregated to a score for every gene set, developmental window and brain region. Furthermore, VEGABrain allows users to submit a custom gene list and obtain its ssGSEA map across development, computed on demand. VEGABrain is open source and requires no installation, offering easy-to-query expression throughout development and brain areas.
+  RNA sequencing datasets are widely reused resources in developmental neuroscience, yet inspecting them spatially remains unclear and difficult. Here, we present VEGABrain, an openly accessible web tool that renders bulk RNA-seq onto brain cortical and subcortical atlas surfaces across five human developmental windows spanning the first trimester to adulthood. Beyond single-gene maps, VEGABrain contributes a composite per-region enrichment layer using single-sample gene set enrichment analysis (ssGSEA) scores precomputed for 18{,}650 gene sets drawn from Gene Ontology, Reactome, KEGG, BioCarta, the Human Phenotype Ontology and the MSigDB hallmark collection, and aggregated to a score for every gene set, developmental window and brain region. Furthermore, VEGABrain allows users to submit a custom gene list and obtain its ssGSEA map across development, computed on demand. Submitted lists can also be tested: two complementary per-area tests---one competitive on the ssGSEA score, one for over-representation of area-specific marker genes---mark the regions where a list stands out, and a developmental-stage test reports the windows in which it peaks, for the whole brain and for six major regions. VEGABrain is open source and requires no installation, offering easy-to-query expression throughout development and brain areas.
 }
 
 \keywords{Neuroinformatics, Brain development, BrainSpan, Gene set enrichment,
@@ -121,7 +121,11 @@ back to anatomy. A submitted list may also carry log2 fold-change values from an
 external comparison---a different disease model, treatment or condition---which
 are then mapped against the BrainSpan expression data, so that analyses can
 follow directions the dataset was not originally built for, not just the
-comparisons already included in it. Both the maps and the numbers behind them are exportable, so
+comparisons already included in it. A submitted list is also tested
+statistically: VEGABrain marks the areas where it stands out against random
+genes of the same expression level, and reports the developmental windows in
+which it peaks, so that a map can be read as a result rather than only as a
+picture. Both the maps and the numbers behind them are exportable, so
 that VEGABrain is a starting point for downstream analysis, 
 consistent with the FAIR principles for reusable research data
 \citep{Wilkinson2016}.
@@ -228,6 +232,82 @@ against the matrix (unmatched symbols are reported back rather than silently
 dropped), ssGSEA is run for that single set across all samples, and the same
 aggregation is applied before rendering.
 
+\subsection{Significance testing for gene lists}\label{sec:tests}
+
+A map shows where a score is high; it does not say whether that is more than
+chance. For a submitted list, VEGABrain therefore offers three tests, run on
+request and reported on the map and in the exported table
+(Table~\ref{tab:tests}). All three are computed from the expression matrix and
+its sample annotation at request time, with no precomputed reference. The unit
+of inference is always the BrainSpan structure or region class, never the atlas
+parcel: results are painted onto parcels only for display, because parcels fed
+by the same structure carry the same measurement (Section~\ref{sec:mapping}).
+
+\paragraph{Score test.} It asks whether the list, taken as a whole, is more
+active in a structure than in the other structures sampled in the same window.
+For every structure--window cell with at least three donors (70 of 87 cells),
+the list's mean ssGSEA score is taken as its deviation from the mean over that
+window's structures, and this deviation is ranked against those of 4{,}000
+random gene sets of the same size, each gene replaced by one from the same bin of
+mean expression (50 bins over the MSigDB gene universe). Centring within the
+window is what makes the test spatial: without it, any list with a developmental
+trend would mark every structure of its peak window. $p$-values are corrected by
+the Benjamini--Hochberg procedure over all tested cells \citep{Benjamini1995},
+and a cell is reported only if it stays below $0.05$ when each of its donors is
+left out in turn. For a list with log2FC values the score is the
+weight-averaged $z$-score of its genes, and the random sets carry the same
+weights. So that 4{,}000 random sets can be scored per request, ssGSEA is
+computed from per-sample rank tables built once; this reproduces \texttt{GSVA}
+to a relative error below $2 \times 10^{-5}$.
+
+\paragraph{Marker test.} It asks whether the list contains the genes that set an
+area apart, following the logic of tissue- and cell-type-specific expression
+analysis \citep{Dougherty2010,Xu2014}. In each window, \texttt{limma}
+\citep{Ritchie2015} fits expression on structure with donor as a fixed effect,
+so that every contrast is made within donors, and tests two levels of contrast:
+each of six region classes (neocortex, hippocampus, amygdala, striatum,
+thalamus, cerebellum) against the equally weighted mean of the other five, and
+each neocortical area against the mean of the other neocortical areas. Genes
+with $q < 0.05$, $\log_2$ fold change $\geq 1$ and mean
+$\log_2(\mathrm{RPKM}+1) \geq 1$ are that area's markers. A one-sided Fisher
+exact test then compares the list with the markers, within the window's
+expressed MSigDB genes, with Benjamini--Hochberg correction over all tested
+cells. A cell is tested if it has at least 10 markers and three informative
+donors (36 cells), and a hit needs $q < 0.05$ and at least two shared genes. A
+list with log2FC values is tested separately for its up- and down-regulated
+genes. Unlike the score test, the marker test names the user's genes that are
+responsible for each hit.
+
+\paragraph{Stage test.} It asks in which window, rather than in which area, a
+list stands out---a question the two area tests cannot answer, because both
+compare areas within one window. For each window, the list's ssGSEA score is
+averaged by structure, then by region class, then over the six region classes
+of the PsychENCODE grouping (NCX, HIP, AMY, STR, MD, CBC; \citealp{Li2018}) with
+equal weight, so that every window has the same regional make-up even though
+BrainSpan sampled different structures at different ages. The window value minus
+the list's mean over the five windows is ranked against the same 4{,}000
+expression-matched random sets; the test is two-sided, Benjamini--Hochberg
+corrected over the windows, and guarded by leaving out each donor of the window
+in turn. It is repeated inside each region class, where a region--window cell is
+tested only if it has at least three donors; in the third trimester only the
+neocortex and the cerebellum qualify. The whole-brain and regional rows are
+corrected as separate families, and a list with log2FC values is also tested as
+its up- and down-regulated halves.
+
+\paragraph{Calibration.} Each test was run on lists that carry no signal
+(Table~\ref{tab:tests}): uniform random lists of 15, 50 and 200 genes,
+random lists with log2FC weights, and real MSigDB sets with every gene swapped
+for one of matched expression. At most 5\% of such lists produced a single
+marked cell in any test. On real MSigDB sets, by contrast, 36\% had a
+score-test hit, 15\% a marker-test hit and 44\% a stage-test hit---the last
+reflecting that development is the dominant axis of variation in brain
+expression, which is why the stage test reports an effect size ($z$) for every
+window. Positive controls behaved as expected: eight striatal markers
+(\emph{PPP1R1B}, \emph{DRD1}, \emph{DRD2} and others) mapped to the striatum in
+all four testable windows and nowhere else, and astrocyte, myelin and cell-cycle
+sets peaked in the third trimester, after birth and in the first two trimesters,
+respectively.
+
 \subsection{Implementation}\label{sec:impl}
 
 VEGABrain is an R \citep{RCoreTeam2026} service built with \texttt{plumber}
@@ -236,7 +316,17 @@ Maps are rendered with \texttt{ggplot2} \citep{Wickham2016} and \texttt{ggseg}
 \citep{Mowinckel2020}, and can be downloaded as vector (SVG) figures together
 with the per-region values behind them as CSV. The same service is exposed as a
 public HTTP API, documented in the source repository, so that maps and tables
-can also be retrieved programmatically.
+can also be retrieved programmatically. The significance tests
+(Section~\ref{sec:tests}) use \texttt{limma} \citep{Ritchie2015} for the marker
+contrasts and are exposed through the same API: a \texttt{significance}
+parameter on the gene-list map and table, and two endpoints that return every
+tested cell, \texttt{POST /area\_enrichment} and \texttt{POST
+/stage\_enrichment}. The reference tables the tests need are built from the
+expression matrix on the first request after the service starts (about 20\,s);
+a list then takes from one to about 30\,s, depending on its size and on whether
+it carries log2FC values. In the interface, the chosen area test marks the map,
+the stage result is shown beside it, and the exported table carries all three
+tests.
 
 %%------------------------------------------------------------------%%
 %% Figure 1 -- data flow (TikZ source: figures/fig1_architecture.tex)
@@ -247,7 +337,8 @@ can also be retrieved programmatically.
 \caption{VEGABrain data flow. The top row runs once, offline; the bottom row
 runs per request. Ontology queries are served from the precomputed score table,
 whereas a user-submitted gene list triggers a fresh ssGSEA run over all 524
-samples.}
+samples and, on request, the area and stage tests of Section~\ref{sec:tests}
+against 4{,}000 expression-matched random gene sets.}
 \label{fig:arch}
 \end{figure}
 
@@ -262,7 +353,9 @@ figure at either region granularity (Section~\ref{sec:mapping}), and a
 reference map labelled by region name is available so that unfamiliar atlas
 parcels can be identified. Every map can be exported together with the table of
 values it was painted from, so a figure produced in VEGABrain and a statistic
-computed from its export cannot disagree. We illustrate each mode with a case
+computed from its export cannot disagree. In gene-list mode the tests of
+Section~\ref{sec:tests} add marks to the map and a developmental-stage panel
+beside it. We illustrate each mode with a case
 whose developmental behaviour is independently established, so that the maps
 can also be judged for biological face validity.
 
@@ -284,17 +377,27 @@ composite layer described in Section~\ref{sec:ssgsea}, and it is what
 distinguishes VEGABrain from a gene-at-a-time browser: a single map summarises
 the coordinated behaviour of tens to hundreds of genes. The member genes of the
 selected set are listed alongside the map, so the composition of any score is
-inspectable. Neurogenesis-associated terms such as
-\texttt{GOBP\_FOREBRAIN\_GENERATION\_OF\_NEURONS} should peak in the prenatal
-windows and decline postnatally. The composite score is
-informative precisely here: the individual genes of a neurogenesis term are
-noisy across 42 sparsely sampled regions, whereas the ssGSEA summary of the
-term is not.
+inspectable. Astrocytes are generated after neurons, once cortical neurogenesis
+gives way to gliogenesis \citep{Rowitch2010}, so
+\texttt{GOBP\_ASTROCYTE\_DEVELOPMENT} should rise late in prenatal development.
+Its map peaks in the third trimester, in cortex and subcortex alike
+(Figure~\ref{fig:ontology}a). The composite score is informative here: the
+individual genes of the term are noisy across 42 sparsely sampled regions,
+whereas the ssGSEA summary of its 42 genes is not. Submitting those genes in
+gene-list mode tests the reading directly (Figure~\ref{fig:ontology}b): against
+random genes of the same expression level, the term is higher in the third
+trimester (whole-brain $z = 6.1$; neocortex $4.7$, cerebellum $4.3$) and lower in
+the first ($z = -2.6$). The hippocampus, amygdala, striatum and thalamus show the
+same third-trimester peak ($z = 4.6$ to $5.9$) but cannot be tested there, as
+each was sampled from only two donors in that window. The example also shows why
+the stage test is needed. Because the term peaks everywhere at once, neither
+area test, both of which compare areas within a window, marks any area in the
+third trimester; the peak is a matter of when, not where.
 
 \subsection{User-submitted gene lists}
 
 In gene-list mode, a pasted list of symbols is validated and scored on demand
-(Figure~\ref{fig:genelist}). Symbols absent from the matrix are listed back to
+(Figures~\ref{fig:autism} and~\ref{fig:organoid}). Symbols absent from the matrix are listed back to
 the user explicitly, so a map is never quietly computed on a subset of what was
 submitted. This is the path from an external result to anatomy: the output of a
 differential expression analysis, a co-expression module, or a disorder risk
@@ -303,21 +406,64 @@ data or writing code. GABAergic interneuron markers (\emph{GAD1}, \emph{GAD2},
 \emph{SLC32A1}) should be present from the second trimester onward with
 subcortical and then cortical distribution. In addition to entering genes,
 for each entry, the researcher can add a logFC value of their choice. The process can simulate 
-how that variation in expression might impact the developmental process.
+how that variation in expression might impact the developmental process; the
+tests then treat the up- and down-regulated genes separately, since the two
+halves of a signature can belong to different areas or stages.
 
-A further case tests the on-demand path against a model whose developmental
-timing is experimentally fixed rather than merely presumed.
-\citet{Fischer2021} exposed human pluripotent stem cells to chronic
-intermittent ethanol throughout a 50-day differentiation to cortical neurons,
-which corresponds to the first trimester, and report an upregulated
-posterodorsal (dorsal/glutamatergic) specification programme. Submitting those 13 symbols
-(Figure~\ref{fig:genelist}) through gene-list mode returns a map whose
-region-averaged score declines monotonically across the five windows---0.79,
-0.73, 0.58, 0.46, 0.44---so the signature is maximal in exactly the window the
-\emph{in vitro} model represents, and the ordering is recovered from BrainSpan
-alone, with no information from the original experiment. Because the exposure
-window is part of the experimental design, this is a stronger test than a
-disease with a merely prenatal attribution.
+\subsection{Where and when: testing a gene list}\label{sec:showcase}
+
+Figure~\ref{fig:autism} applies the three tests to a list whose developmental
+answer is known from independent work: the 262 genes of the Human Phenotype
+Ontology term \texttt{HP\_AUTISM} that are present in BrainSpan. Autism risk
+genes converge on mid-fetal cortical development
+\citep{Willsey2013,Parikshak2013}. The marker test, drawn on the map
+(Figure~\ref{fig:autism}a), asks which areas' specific genes the list contains,
+and names them (Figure~\ref{fig:autism}c). The list holds 21 of the 490
+neocortex markers of the third trimester, among them \emph{SATB2},
+\emph{FOXG1}, \emph{TBR1} and \emph{SYNGAP1}, so every neocortical area sampled
+in that window is marked; it also holds 5 of the 33 markers of the
+second-trimester anterior cingulate cortex, mostly progenitor and glial genes
+(\emph{SOX2}, \emph{SOX3}, \emph{ATP1A2}). The stage test recovers the timing
+from the list alone: the list peaks in the second trimester (whole-brain
+$z = 3.4$; hippocampus, amygdala and striatum, $z = 3.6$ to $3.9$) and is lower
+in the third trimester and in infancy (Figure~\ref{fig:autism}b). The score
+test, the alternative mark for the same map, finds ten neocortical cells, in the
+second trimester (primary motor and somatosensory cortex, inferolateral temporal
+cortex), in infancy and in adulthood. The term is broader than a curated risk
+list---it includes syndromic genes such as the Bardet--Biedl ciliopathy
+family---so the effect sizes are moderate, yet the three tests agree on a
+prenatal, cortical reading. They are complementary by design: on 100 MSigDB
+sets the two area tests agreed far more than by chance (odds ratio 26), but each
+found cells the other missed.
+
+\subsection{A signature with fold changes: ethanol in cerebral organoids}\label{sec:organoid}
+
+A list can also carry the log2 fold changes of a differential-expression
+result. \citet{Arzua2020} exposed two-month-old cerebral organoids, derived from
+human induced pluripotent stem cells, to 50\,mM ethanol for 6\,h, and report 199
+genes changed more than twofold ($P < 0.05$), 162 up and 37 down. Submitting
+that table as published, with signed log2 fold changes, gives a weighted map of
+the 173 genes found in BrainSpan, 141 up and 32 down
+(Figure~\ref{fig:organoid}). Cerebral organoids of this age resemble the early
+and mid-fetal neocortex \citep{Camp2015,Gordon2021}, and the stage test places
+the signature there with no information from the experiment: it is higher in
+the first and second trimesters (whole-brain $z = 3.2$ and $4.9$), in every
+region in the second trimester (the cerebellum resting on one donor), and lower
+in the third trimester and in infancy ($z = -6.4$ and $-2.4$, both resting on
+one donor at the whole-brain level; Figure~\ref{fig:organoid}b). The genes
+ethanol raised carry this result (whole-brain $z = 3.3$ and $4.8$ in the first
+two trimesters), while the 32 it lowered peak in no window. The score test marks
+19 cells, all of them neocortical areas, in the first and second trimesters and
+after birth (Figure~\ref{fig:organoid}a): within each window, the signature
+stands out in the cortex rather than in subcortical structures. The marker test
+agrees, placing raised genes such as \emph{MEF2C}, \emph{RORB} and
+\emph{KCNV1} among the neocortex markers of all five windows. Two cautions
+concern the input rather than the map. None of the 199 genes reached a false
+discovery rate below 0.19 in the original study, and a bulk change measured 6\,h
+after exposure cannot by itself separate a change in gene regulation from a
+change in the cells present. VEGABrain shows where and when the genes of such a
+signature are normally active; whether the exposure acts there is a question for
+the experiment.
 
 %%------------------------------------------------------------------%%
 %% Figures 2-5 (placeholders in this draft -- see IMPLEMENTATION.md)
@@ -337,30 +483,53 @@ segmentation. Grey indicates regions with no BrainSpan sample in that window.}
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{fig3_ontology.png}
-\caption{Ontology mode: composite ssGSEA score for
-\texttt{GOBP\_FOREBRAIN\_GENERATION\_OF\_NEURONS} across development. The score
+\caption{Ontology mode. (a) Composite ssGSEA score for
+\texttt{GOBP\_ASTROCYTE\_DEVELOPMENT} across development. The score
 summarises every gene in the term into one value per region and window; the same
 term can be viewed at micro granularity (42 atlas regions) or macro granularity
-(six anatomical groupings).}
+(six anatomical groupings). (b) Developmental-stage test of the term's 42 genes
+(Section~\ref{sec:tests}), for the whole brain and the six PsychENCODE regions.
+Colour is $z$ against 4{,}000 expression-matched random gene sets, centred over
+the five windows; a star marks $q < 0.05$ that survives leaving out any one
+donor, a ring $q < 0.05$ resting on one donor, and hatching a cell with fewer
+than three donors, which is not tested. The term peaks in the third trimester in
+every region, but only the neocortex and the cerebellum have enough donors in
+that window to be tested.}
 \label{fig:ontology}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig4_genelist.png}
-\caption{User-submitted gene-list mode. ssGSEA computed on demand for the
-posterodorsal (dorsal/glutamatergic) specification programme that \citet{Fischer2021} report as
-upregulated by chronic intermittent ethanol exposure in human pluripotent stem
-cells differentiated to first-trimester-equivalent cortical neurons
-(\emph{EMX2}, \emph{LHX1/2/5/9}, \emph{OTX2}, \emph{FEZF2},
-\emph{NEUROD1/2/6}, \emph{NEUROG2}, \emph{TBR1}, \emph{EOMES}). The submitted
-list is a published differential-expression result, not a curated marker panel,
-and it is mapped without local installation or coding. The score is highest in
-the cortical parcels of the first two prenatal windows---the period the
-\emph{in vitro} model corresponds to---and falls monotonically thereafter,
-while the striatum stays low throughout, recovering the dorsal--ventral
-contrast the signature encodes.}
-\label{fig:genelist}
+\includegraphics[width=\textwidth]{fig4_autism.png}
+\caption{Where and when a gene list is enriched: the 262 genes of
+\texttt{HP\_AUTISM} found in BrainSpan. (a) ssGSEA map with the marker test:
+diamonds mark the areas whose specific genes are over-represented in the list
+(one-sided Fisher test against \texttt{limma} area markers, $q < 0.05$, at least
+two shared genes). A hit for the neocortex as a whole, here in the third
+trimester, marks every neocortical area sampled in that window.
+(b) Developmental-stage test, as in Figure~\ref{fig:ontology}b: the list peaks
+in the second trimester, as autism risk genes are known to
+\citep{Willsey2013,Parikshak2013}. (c) The cells marked in (a), with the shared
+genes.}
+\label{fig:autism}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig5_organoid.png}
+\caption{A signature with fold changes: the genes changed by 6\,h of 50\,mM
+ethanol in two-month-old human cerebral organoids \citep{Arzua2020}, submitted
+with their signed log2 fold changes (173 of 199 genes found in BrainSpan; 141 up,
+32 down). The list is a published differential-expression result, mapped without
+local installation or coding. (a) Weighted score: magenta where the genes
+ethanol raised are high relative to those it lowered, blue where the reverse
+holds. Asterisks mark the score test: structures where the weighted score
+exceeds that of 4{,}000 expression-matched random gene sets carrying the same
+weights ($q < 0.05$, robust to leaving out any donor); all 19 are neocortical
+areas. (b) Developmental-stage test of the weighted list, as in
+Figure~\ref{fig:ontology}b: higher in the first and second trimesters, the
+stage that organoids of this age resemble.}
+\label{fig:organoid}
 \end{figure}
 
 %%------------------------------------------------------------------%%
@@ -398,6 +567,38 @@ Gene sets scored         & 18{,}650 total \\
 \end{tabular}
 \end{table}
 
+%%------------------------------------------------------------------%%
+%% Table 2 -- calibration of the significance tests
+%%------------------------------------------------------------------%%
+\begin{table}[htbp]
+\centering
+\caption{Calibration of the significance tests: share of lists with at least
+one marked cell.}\label{tab:tests}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+& \multicolumn{3}{c}{Random lists (no signal)} & Expression-matched & Real MSigDB \\
+\cmidrule(lr){2-4}
+Test & 15 genes & 50 genes & 200 genes & swaps (no signal) & sets \\
+\midrule
+Score (per structure)          & 2.0\% & 3.5\% & 4.0\% & ---   & 36\% \\
+Marker (per class or area)     & 1.8\% & 1.8\% & 1.8\% & 3.0\% & 15\% \\
+Stage, whole brain             & 3.0\% & 3.0\% & 4.3\% & 2.3\% & 44\% \\
+Stage, six regions             & 2.5\% & 2.5\% & 3.5\% & 2.5\% & 46\% \\
+\botrule
+\end{tabular}
+\footnotetext{A marked cell is one that passes Benjamini--Hochberg correction at
+$q < 0.05$ and, for the score and stage tests, the leave-one-donor-out check.
+Random lists: 200 per size (score test, 2{,}000 random sets each), 500 (marker
+test) and 300 or 200 (stage test, whole brain or regions, 1{,}000 random sets
+each). Random lists of 50 genes with log2FC weights drawn from
+$\mathcal{N}(0, 1)$ gave 3.0\% (score, 100 lists), 0.6\% (marker) and 3.0\%
+(stage). Real sets: 15 to 300 genes found in the data, 200 sets (score) or 300
+(marker, stage). Scripts: \texttt{stats/validate\_stats.R},
+\texttt{stats/validate\_markers.R} in the repository.}
+\end{table}
+
 %%==================================================================%%
 \section{Discussion}\label{sec:discussion}
 %%==================================================================%%
@@ -406,7 +607,10 @@ VEGABrain lowers the cost of asking a spatial question of the developing human
 transcriptome from a small project to a few seconds in a browser. The composite enrichment layer extends the same reasoning to the
 unit that modern analyses actually produce---a gene set---and the on-demand mode
 means a user's own list is a first-class input rather than something the tool's
-authors had to anticipate.
+authors had to anticipate. The significance tests take the last step: they turn
+a map into a result, by marking where and when a list stands out against random
+genes of the same expression level, and by naming the genes behind each area
+hit.
 
 \subsection{Relation to existing tools}\label{sec:comparison}
 
@@ -440,6 +644,7 @@ SMDB \citep{Cao2023}                   & ---        & \checkmark & ---   & ---  
 Programmatic plotting guides \citep{Chopra2023} & --- & \checkmark & --- & \checkmark & --- \\
 Enrichr \citep{Chen2013,Kuleshov2016}  & ---        & ---        & \checkmark & \checkmark & \checkmark \\
 \texttt{VoxHunt} \citep{Fleck2021}     & \checkmark & \checkmark & ---   & \checkmark & --- \\
+\texttt{ABAEnrichment} \citep{Grote2016} & \checkmark & ---   & ---   & \checkmark & --- \\
 \botrule
 \end{tabular}
 \footnotetext{``Developmental axis'' means the tool natively presents variation
@@ -493,6 +698,18 @@ samples, and is an R package rather than a hosted service. VEGABrain occupies th
 intersection the others leave open: hosted, developmental, parcellated, and
 gene-set \emph{scored}.
 
+Testing a gene set for regional or developmental enrichment has been done
+before, though not in a hosted, anatomical tool. \texttt{ABAEnrichment}
+\citep{Grote2016} tests gene sets for expression enrichment across the regions
+and developmental stages of the Allen atlases, BrainSpan included, as an R
+package that returns tables. The specificity index and the tissue-specific
+expression analyses built on it \citep{Dougherty2010,Xu2014} ask, as VEGABrain's
+marker test does, whether a list is over-represented among genes specific to a
+region and developmental period. VEGABrain combines a test of that kind with a
+competitive test on the composite score and with a test of developmental
+timing, and draws all three on the same parcellated map for any list a user
+pastes.
+
 \subsection{Limitations}\label{sec:limitations}
 
 Several limitations bound the interpretation of any map produced here, and the
@@ -500,8 +717,11 @@ interface is designed to keep them visible rather than to smooth them over.
 First, donor support is small and uneven: each developmental window rests on 5
 to 14 donors, and not every structure is sampled in every window. Donor counts
 are printed in every facet label and unsampled regions are drawn in grey rather
-than interpolated, but a difference between two regions in a single window
-should be read as descriptive, not as a test. The many-to-one assignment of
+than interpolated, and the tests of Section~\ref{sec:tests} leave cells with
+fewer than three donors untested rather than test them. Even so, the third
+trimester rests mostly on two donors, of 24 and 37 post-conception weeks, so a
+third-trimester result often reads as ``near term'', and a contrast resting on
+few donors deserves less weight than its $q$-value alone suggests. The many-to-one assignment of
 BrainSpan structures to atlas parcels (Section~\ref{sec:mapping}) likewise means
 that neighbouring parcels sharing a structure cannot differ.
 
@@ -517,10 +737,20 @@ across gene sets of different sizes and not on an absolute scale. Colour scales
 for ontology maps are therefore free rather than fixed, and a score should be
 read as a spatiotemporal pattern, not as a magnitude.
 
+Fourth, the score and stage tests are competitive: they compare a list with
+random genes of matched expression, which ignores the correlation among the
+list's own genes \citep{Goeman2007,Wu2012}. A coherent programme therefore
+passes more easily than random genes do, and because development dominates
+brain expression, about four in ten curated gene sets peak in some window. Each
+cell is reported with its effect size ($z$), which should be read alongside the
+mark. The marker test inherits the bulk-tissue caveat in another form: cortical
+areas converge after birth, so fewer area-specific genes are found and fewer
+postnatal areas can be tested.
+
 Future work follows directly from these bounds: incorporating single-cell and
-single-nucleus developmental atlases, adding statistical contrast between
-windows or regions rather than descriptive display alone and allowing user-supplied
-parcellations.
+single-nucleus developmental atlases, which would let the marker test speak of
+cell types rather than tissue, testing against correlation-aware nulls, and
+allowing user-supplied parcellations.
 
 %%==================================================================%%
 \section{Conclusion}\label{sec:conclusion}
@@ -528,7 +758,8 @@ parcellations.
 
 VEGABrain makes the developmental human brain transcriptome, and the activity of
 gene sets within it, visible anatomically without installation, coding or data
-preparation. Maps and their underlying tables are exportable, the
+preparation, and it tests submitted gene lists for where and when they are
+enriched against expression-matched random genes. Maps and their underlying tables are exportable, the
 structure-to-atlas mapping is published rather than implied, and the source is
 open. The tool is available at \url{https://mcblab.github.io/VEGABrain/}.
 

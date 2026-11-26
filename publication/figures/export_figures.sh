@@ -3,15 +3,21 @@
 #
 #   fig1_architecture.pdf   Fig. 1  data flow (TikZ, fig1_architecture.tex)
 #   fig2_gene_sox10.png     Fig. 2  single-gene mode, SOX10
-#   fig3_ontology.png       Fig. 3  ontology mode, GOBP_FOREBRAIN_GENERATION_OF_NEURONS
-#   fig4_genelist.png       Fig. 4  gene-list mode, FAS dorsal/glutamatergic signature
+#   fig3_ontology.png       Fig. 3  ontology mode (GOBP_ASTROCYTE_DEVELOPMENT) +
+#                                   its developmental-stage test
+#   fig4_autism.png         Fig. 4  HP_AUTISM: marker test marks, stage test,
+#                                   marker genes
+#   fig5_organoid.png       Fig. 5  ethanol in cerebral organoids (Arzua et al.
+#                                   2020, log2FC list): score test + stage test
 #
-# Figs. 2-4 are downloaded from the API's own *_png endpoints, so the paper
-# shows exactly what the tool serves. Point API_URL at an API built from this
-# tree -- the deployed one only matches after plumber.R changes are deployed:
+# Figs. 2-5 are drawn by make_panels.R, which sources ../../plumber.R and calls
+# the same grafico_*() functions the API's *_png endpoints call, plus the test
+# code in ../../stats/ -- so the paper shows exactly what the tool serves, at
+# 300 dpi. The numbers behind the panels are written to genes/fig*_stage.csv,
+# genes/fig4_markers.csv and genes/fig5_score.csv; Fig. 5's input list is
+# genes/fig5_organoid_arzua2020.csv.
 #
-#   docker compose up -d plumber-api
-#   API_URL=http://127.0.0.1:33857 bash figures/export_figures.sh
+#   bash publication/figures/export_figures.sh
 #
 # Supplementary File 1 (../supplementary/S1_region_mapping.csv) is not
 # touched here on purpose: the root mapeamento_regioes.csv is gitignored and
@@ -19,27 +25,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-API="${API_URL:?set API_URL to the plumber API, e.g. API_URL=http://127.0.0.1:33857}"
-API="${API%/}"
-
 export PATH="$HOME/.TinyTeX/bin/x86_64-linux:$PATH"
 Rscript -e 'tinytex::latexmk("fig1_architecture.tex", engine = "pdflatex", clean = TRUE)'
 echo "wrote fig1_architecture.pdf"
 
-# -f: an API error (HTTP 500) must fail the script, not save the JSON error
-# body under a .png name.
-curl -fsS --max-time 300 -o fig2_gene_sox10.png \
-  "$API/plot_brain_png?gene=SOX10&scale=micro"
-echo "wrote fig2_gene_sox10.png"
-
-curl -fsS --max-time 300 -o fig3_ontology.png \
-  "$API/plot_ontology_png?geneset=GOBP_FOREBRAIN_GENERATION_OF_NEURONS&scale=micro"
-echo "wrote fig3_ontology.png"
-
-# Same 13 genes as FAS_DORSAL in make_figures.R (Fischer et al. 2021); no
-# log2FC column, so the API scores it with plain ssGSEA.
-curl -fsS --max-time 900 -o fig4_genelist.png -X POST \
-  -H 'Content-Type: application/json' \
-  -d '{"gene_string": "EMX2\nLHX1\nLHX2\nLHX5\nLHX9\nOTX2\nFEZF2\nNEUROD1\nNEUROD2\nNEUROD6\nNEUROG2\nTBR1\nEOMES", "scale": "micro"}' \
-  "$API/plot_genelist_png"
-echo "wrote fig4_genelist.png"
+Rscript make_panels.R

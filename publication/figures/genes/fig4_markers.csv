@@ -1,0 +1,3 @@
+"window","area","level","overlap","n_markers","odds_ratio","q","genes"
+"2nd trimester (n = 10)","anterior (rostral) cingulate (medial prefrontal) cortex","area",5,33,8.82560200508128,0.0101652577835405,"ATP1A2, MLC1, NDP, SOX2, SOX3"
+"3rd trimester (n = 5)","neocortex","class",21,490,2.38581793457271,0.0101652577835405,"ACTL6B, ATP1A3, CACNA1A, CACNA1B, CACNA2D1, CNKSR2, EEF1A2, FGF12, FOXG1, GABRA5, GLRA2, GP1BB, PPFIA3, PROKR2, SATB2, SCN2A, SCN3A, STX1A, SYNGAP1, TBR1, YWHAG"

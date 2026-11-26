@@ -42,9 +42,11 @@
 \node[serve, below=26mm of prep] (map)
   {Rendered map\\SVG figure $+$ CSV table};
 \node[serve, left=12mm of map]  (user) {User query\\gene, ontology term\\or gene list};
-\node[serve, right=14mm of map] (ondemand) {On-demand ssGSEA\\for user gene lists};
+\node[serve, right=14mm of map, text width=31mm] (ondemand)
+  {On-demand ssGSEA,\\area and stage tests,\\for user gene lists};
 
-\draw[arr] (rds.south) -- node[lab, right] {ontology term} (rds.south|-map.north);
+%% ontology terms are served from the precomputed table straight to the map
+\draw[arr] (rds.south) -- ++(0,-9mm) -| node[lab, pos=0.25, above] {ontology term} (map.north);
 \draw[arr] (user) -- (map);
 \draw[arr] (ondemand) -- node[lab, above] {gene list} (map);
 

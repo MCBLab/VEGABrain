@@ -14,9 +14,14 @@ placeholder, and how to build the PDF.
   the journal's own statement of the bar for software papers).
 - **Working title:** VEGABrain: a Visualizer of Enriched Gene Analysis for the
   developing human brain
-- **Status:** full text drafted; all four figures are real (the interface
+- **Status:** full text drafted; all five figures are real (the interface
   screenshot was dropped on 2026-09-14), and most measured values in Section 4 are still marked
-  `[TODO]`. See [Second pass](#second-pass).
+  `[TODO]`. See [Second pass](#second-pass). Branch `publication_update`
+  (2026-11-25) adds the significance tests: Methods 2.5, Table 2 (calibration),
+  stage panels, Discussion and Limitations. Figs. 3-5 reworked on 2026-11-26:
+  Fig. 3 `GOBP_ASTROCYTE_DEVELOPMENT` + stage test, Fig. 4 `HP_AUTISM` with the
+  marker test, Fig. 5 ethanol in cerebral organoids (`Arzua2020`) with the
+  score test. The Fischer et al. (2021) list is no longer in the paper.
 
 ---
 
@@ -25,17 +30,19 @@ placeholder, and how to build the PDF.
 ```
 publication/
 ├── main.tex                  the manuscript
-├── main.pdf                  built output (19 pp, A4)
-├── references.bib            42 entries
+├── main.pdf                  built output (21 pp, A4)
+├── references.bib            55 entries (54 cited)
 ├── build.sh                  build / clean
 ├── sn-jnl.cls                Springer Nature class (copied from template/)
 ├── sn-basic.bst              bibliography style used by main.tex
 ├── bst/                      the other eight SN styles, unused
 ├── template/                 pristine unpacked template, incl. user-manual.pdf
 ├── figures/
-│   ├── export_figures.sh     regenerates fig1-fig4, numbered as in the PDF
+│   ├── export_figures.sh     regenerates fig1-fig5, numbered as in the PDF
 │   ├── fig1_architecture.tex Fig. 1 TikZ source -> fig1_architecture.pdf
-│   ├── fig{2,3,4}_*.png      Figs. 2-4, the API's own PNG maps
+│   ├── make_panels.R         Figs. 2-5 from the app's own code (plumber.R, stats/), 300 dpi
+│   ├── fig{2,3,4,5}_*.png    Figs. 2-5
+│   ├── genes/                numbers behind the panels (CSV) + Fig. 5's input table
 │   └── make_figures.R        offline vector mirror of Figs. 2-4 (pinned ggseg)
 ├── supplementary/
 │   └── S1_region_mapping.csv   Supplementary File 1, the region mapping
@@ -142,9 +149,11 @@ sort(table(sub("_.*", "", names(gs))), decreasing = TRUE)
 | Item | Label | State | Regenerate with |
 |---|---|---|---|
 | Fig. 1 Architecture | `fig:arch` | **real** — TikZ, `figures/fig1_architecture.tex` | `build.sh` (when the `.tex` is newer) |
-| Fig. 2 Single gene (*SOX10*) | `fig:gene` | **real** | `figures/export_figures.sh` |
-| Fig. 3 Ontology composite score | `fig:ontology` | **real** | `figures/export_figures.sh` |
-| Fig. 4 User gene list (FAS signature) | `fig:genelist` | **real** | `figures/export_figures.sh` |
+| Fig. 2 Single gene (*SOX10*) | `fig:gene` | **real** | `figures/make_panels.R fig2` |
+| Fig. 3 Ontology (`GOBP_ASTROCYTE_DEVELOPMENT`) + stage test | `fig:ontology` | **real** | `figures/make_panels.R fig3` |
+| Fig. 4 `HP_AUTISM`: marker test on the map, stage test, marker genes | `fig:autism` | **real** | `figures/make_panels.R fig4` |
+| Fig. 5 Ethanol in cerebral organoids (log2FC list): score test + stage test | `fig:organoid` | **real** | `figures/make_panels.R fig5` |
+| Table 2 Calibration of the significance tests | `tab:tests` | **real** | `stats/validate_stats.R`, `stats/validate_markers.R`, stage calibration (numbers in `stats/stage_stats.R`) |
 | Supplementary File 1 | — | **real** — copy of the tool's `mapeamento_regioes.csv` | by hand (see below) |
 | Table 1 Data summary | `tab:data` | **real** | — |
 | Table 2 API endpoints | `tab:api` | **real** | `plumber.R` |
@@ -152,14 +161,17 @@ sort(table(sub("_.*", "", names(gs))), decreasing = TRUE)
 | Table 4 Tool comparison | `tab:compare` | **real** | — |
 
 Figure files are named by their number in the compiled PDF (`fig1_…` to
-`fig4_…`). Fig. 1 is TikZ compiled standalone, because Springer takes figures as
-separate files. Figs. 2-4 are the API's own `*_png` output (11 × 7 in, 150 dpi),
-downloaded by `figures/export_figures.sh`, so the paper shows exactly what the
-tool serves. Point it at an API built from the same tree:
+`fig5_…`). Fig. 1 is TikZ compiled standalone, because Springer takes figures as
+separate files. Figs. 2-5 are drawn by `figures/make_panels.R`, which sources
+`plumber.R` and calls the same `grafico_*()` functions as the API's `*_png`
+endpoints, plus the test code in `stats/` -- so the paper shows exactly what the
+tool serves, at 300 dpi instead of the endpoints' 150 (cairo PNG device, as the
+API uses). Stage panels sit right of the maps in Figs. 3-5; the numbers behind
+them are written to `figures/genes/`.
 
 ```bash
-docker compose up -d plumber-api
-API_URL=http://127.0.0.1:33857 bash figures/export_figures.sh
+bash publication/figures/export_figures.sh   # Fig. 1 + Figs. 2-5
+Rscript publication/figures/make_panels.R fig5   # one figure
 ```
 
 Supplementary File 1 is deliberately not refreshed by that script: the root
@@ -204,8 +216,9 @@ named `bankssts`, which no longer matches the DK atlas and so renders grey, and
 Re-running `preparaDados.R` would let both detours go, but it recomputes ssGSEA
 over all 18,650 gene sets. See [Second pass](#second-pass).
 
-Both figures were checked against the deployed API, which is the point of
-generating them this way:
+The figures of the 2026-09-04 draft were checked against the deployed API,
+which is the point of generating them this way (Figs. 3 and 4 have since been
+replaced; the current ones come from the same `grafico_*()` code):
 
 | | cells vs `/data_*` | max \|Δ\| | Pearson *r* |
 |---|---|---|---|
@@ -219,25 +232,26 @@ CSV endpoint (`/data_brain`) applies no cap at all, so the two differ for any
 region holding a sample above 6. Section 3 of `main.tex` currently claims the
 opposite — see [Second pass](#second-pass).
 
-Figure 4's demonstration list is `FAS_DORSAL` in `make_figures.R`: the 13
-dorsal/glutamatergic specification genes that `Fischer2021` reports as
-upregulated by chronic intermittent ethanol in human pluripotent stem cells
-differentiated over 50 days to first-trimester-equivalent cortical neurons
-(*EMX2*, *LHX1/2/5/9*, *OTX2*, *FEZF2*, *NEUROD1/2/6*, *NEUROG2*, *TBR1*,
-*EOMES*). Only genes whose direction that paper states in its text are
-included; all 13 are present in the BrainSpan matrix. It was chosen over a
-marker panel because the exposure window is part of the experimental design, so
-the map is checkable rather than merely illustrative — and it checks out: the
-region-averaged score falls monotonically across the five windows (0.81, 0.74,
-0.58, 0.47, 0.44), peaking in the window the *in vitro* model represents. Those
-five numbers are quoted in Section 4.2 of `main.tex`; `fig_genelist()` prints
-them on every run. The paper's other two directional sets — the
-ethanol-downregulated ventral/GABAergic programme and the upregulated WNT genes
-— were rendered and rejected: both are much flatter across development.
+Figure 5's list is `figures/genes/fig5_organoid_arzua2020.csv`, Supplementary
+Table 1 of `Arzua2020`: 199 genes changed more than twofold (P < 0.05; 162 up,
+37 down) after 6 h of 50 mM ethanol in two-month-old iPSC cerebral organoids.
+The signed log2 fold change is `log2(fold change)`, negative for "down". The
+whole table is submitted as a user would paste it; the app keeps the 173 symbols
+BrainSpan has (141 up, 32 down). Every gene's FDR in the source is 0.19-0.31,
+which the Results text states. The numbers behind the figure are in
+`genes/fig5_stage.csv` and `genes/fig5_score.csv`.
+
+Until 2026-11-26, Fig. 4 was `FAS_DORSAL`, the 13 dorsal/glutamatergic
+specification genes that `Fischer2021` reports as upregulated by chronic
+intermittent ethanol in hPSC-derived cortical neurons; it is still defined in
+`make_figures.R`. The `Fischer2021` entry stays in `references.bib` but is no
+longer cited.
 
 ## 6. Reference ledger
 
-42 entries in `references.bib` (four added 2026-11-19 after review: ggplot2, ToppGene, GTEx, Roadmap); 23 have the full text archived in
+Entries in `references.bib`: four added 2026-11-19 after review: ggplot2, ToppGene, GTEx, Roadmap; nine added 2026-11-25 for the significance tests, every DOI checked against Crossref: Grote2016, Dougherty2010, Xu2014, Wu2012, Ritchie2015, Benjamini1995, Willsey2013, Parikshak2013, Goeman2007; four added 2026-11-26 for the new Figs. 3 and 5, DOIs checked
+against Crossref: Rowitch2010, Arzua2020, Camp2015, Gordon2021. That makes 55 entries, 54
+cited (`Fischer2021` is no longer cited); 23 have the full text archived in
 `references/<Key>.pdf`. Bib key ⇄ filename is 1:1 (`Zhu2019.pdf` was renamed to
 `Zhu2018.pdf` and `mowinckel2020.pdf` to `Mowinckel2020.pdf` to keep it so).
 
@@ -289,6 +303,9 @@ Everything below is deliberately unfinished in the current draft.
 - [x] Figs. 2 and 3 generated and verified against the deployed API (2026-09-04).
 - [x] Fig. 4 generated from the Fischer et al. (2021) fetal-alcohol signature
       and verified against `POST /data_genelist` (2026-09-04).
+- [x] Figs. 3-5 reworked (2026-11-26): astrocyte development + stage test,
+      HP_AUTISM with the marker test, organoid ethanol signature with the score
+      test.
 - [ ] Re-run `preparaDados.R` so `dados_otimizados.rds`, `ontologia_micro.rds`
       and `ontologia_macro.rds` pick up the current `mapeamento_regioes.csv`
       (`bankssts` → `banks of superior temporal sulcus`, `corpus callosum`
