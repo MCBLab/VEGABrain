@@ -57,8 +57,8 @@ const formataQ = (q) => (q === null || q === undefined ? '—' : q < 0.001 ? q.t
 // Stage test (/stage_enrichment): one row per (list, region, window). z is
 // centred over the 5 windows, so blue = lower than random genes there, red =
 // higher. The panel only draws it; the numbers go to Download Data (CSV).
-const JANELAS_ESTAGIO = ['1st trimester', '2nd trimester', '3rd trimester', 'Infant', 'Adult'];
-const JANELAS_CURTAS = { '1st trimester': '1st', '2nd trimester': '2nd', '3rd trimester': '3rd', Infant: 'Inf', Adult: 'Adu' };
+const JANELAS_ESTAGIO = ['1st trimester', '2nd trimester', '3rd trimester', 'Child', 'Adult'];
+const JANELAS_CURTAS = { '1st trimester': '1st', '2nd trimester': '2nd', '3rd trimester': '3rd', Child: 'Child', Adult: 'Adult' };
 const ROTULOS_ESTAGIO = { all: 'All genes', up: '▲ Up-regulated', down: '▼ Down-regulated' };
 const ROTULOS_CURTOS = { all: 'All', up: '▲ Up', down: '▼ Down' };
 // Same navy-to-maroon palette as the paper figures, capped at |z| = 10.

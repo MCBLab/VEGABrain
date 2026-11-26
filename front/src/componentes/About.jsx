@@ -309,7 +309,9 @@ export default function About() {
           <ul className="space-y-3 text-base text-[#596061] leading-relaxed list-disc pl-5">
             <li>
               <Strong>Donors per window</Strong> are 5, 10, 5, 14 and 8 (1st, 2nd and 3rd
-              trimester, Infant, Adult). The 3rd trimester is mostly two donors, at 24 and
+              trimester, Child, Adult). Child is every postnatal donor under 18 (4 months to
+              15 years), so it covers infancy, childhood and adolescence; Adult is 18 to 40
+              years. The 3rd trimester is mostly two donors, at 24 and
               37 post-conception weeks, so a 3rd-trimester result often means "near term".
             </li>
             <li>

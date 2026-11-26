@@ -149,11 +149,24 @@ described in Section~\ref{sec:ssgsea} are performed once, offline
 
 \subsection{Developmental windows}\label{sec:ages}
 
-BrainSpan donors span 31 distinct ages from 8 post-conceptional weeks to 40
-years. Individual ages are too sparsely sampled to render as separate maps, so
-donors are binned into five developmental windows: first trimester ($n=5$
-donors), second trimester ($n=10$), third trimester ($n=5$), infant ($n=14$) and
-adult ($n=8$). The donor counts are also given in Table~\ref{tab:data}; the
+BrainSpan donors span 31 distinct ages from 8 post-conceptional weeks (pcw) to
+40 years. Individual ages are too sparsely sampled to render as separate maps,
+so donors are binned into five developmental windows: first trimester (8--12
+pcw, $n=5$ donors), second trimester (13--21 pcw, $n=10$), third trimester
+(24--37 pcw, $n=5$), child ($n=14$) and adult ($n=8$).
+
+The two postnatal windows split the postnatal donors at 18 years, where
+BrainSpan's sampling has a natural gap: no donor is aged between 15 and 18
+years. The child window therefore holds every postnatal donor under 18: 14
+donors aged 4 months to 15 years, five of them under two years, four aged 2 to
+4 years and five aged 8 to 15 years. It spans infancy, childhood and
+adolescence (periods 8--12 of \citealp{Kang2011}), so a result in this window
+describes the maturing postnatal brain as a whole rather than any one of those
+stages. The adult window holds the eight donors aged 18 to 40
+years, one per age, four male and four female. No donor is older than 40, so
+this window covers young adulthood and says nothing about ageing.
+
+The donor counts and age ranges are also given in Table~\ref{tab:data}; the
 donor count is displayed in every facet label in the
 interface so that the reader is never shown a map without also being shown how
 much evidence stands behind it.
@@ -167,18 +180,28 @@ prefrontal cortex}), whereas \texttt{ggseg} draws atlas parcels (for example
 \texttt{aseg} segmentation \citep{Fischl2002}, both accessed through
 \texttt{ggseg} \citep{Mowinckel2020}.
 
-Each atlas parcel is assigned a single BrainSpan structure. BrainSpan samples
-far fewer structures than the atlases draw, so the assignment is many-to-one:
-22 BrainSpan structures cover 42 atlas regions, and parcels that fall within
-one dissected structure share its value (for example, the rostral and caudal
-middle frontal parcels both take the dorsolateral prefrontal cortex samples).
-Atlas regions with no BrainSpan counterpart, such as the brain stem, pallidum
-and choroid plexus, are left unassigned. The complete assignment is a single
+Each atlas parcel takes the samples of one BrainSpan structure, except the
+thalamus and the cerebellum, which pool the two names BrainSpan gives each
+(dorsal thalamus and mediodorsal nucleus of the thalamus; cerebellum and
+cerebellar cortex). BrainSpan samples far fewer structures than the atlases
+draw, so the assignment is many-to-one: 22 of BrainSpan's 26 structures cover
+28 atlas parcels---21 of the 34 Desikan--Killiany cortical parcels and seven
+\texttt{aseg} structures (amygdala, hippocampus, thalamus, caudate, putamen,
+nucleus accumbens and cerebellum)---and parcels that fall within one dissected
+structure share its value (for example, the rostral and caudal middle frontal
+parcels both take the dorsolateral prefrontal cortex samples, and the caudate,
+putamen and nucleus accumbens all take the striatum samples). The four
+structures left out, the medial, lateral and caudal ganglionic eminences and
+the upper rhombic lip, are transient fetal structures with no counterpart in
+either atlas. Atlas parcels with no BrainSpan counterpart are left unassigned
+and drawn in grey: 13 Desikan--Killiany parcels, among them the superior
+frontal gyrus, insula, precuneus and fusiform gyrus, and \texttt{aseg}
+structures such as the brain stem, pallidum and choroid plexus. The complete assignment is a single
 table, provided as Supplementary File~1 and read by the application as is, so
 it can be inspected and changed rather than reimplemented per project.
 
 The interface exposes two levels of granularity. At the \emph{micro} scale each
-of the 42 mapped atlas regions carries its own value. At the \emph{macro} scale
+of the 28 mapped atlas parcels carries its own value. At the \emph{macro} scale
 regions are pooled into six anatomical groupings---frontal, parietal, temporal
 and occipital lobes, subcortical structures and cerebellum---the mean is taken
 within each grouping, and that mean is painted back onto every region belonging
@@ -326,7 +349,7 @@ parameter on the gene-list map and table, and two endpoints that return every
 tested cell, \texttt{POST /area\_enrichment} and \texttt{POST
 /stage\_enrichment}. The reference tables the tests need are built from the
 expression matrix on the first request after the service starts (about 20\,s);
-a list then takes from one to about 30\,s, depending on its size and on whether
+a list then takes from one to about 5\,s, depending on its size and on whether
 it carries log2FC values. In the interface, the chosen area test marks the map,
 the stage result is shown beside it, and the exported table carries all three
 tests.
@@ -354,9 +377,7 @@ or a user-submitted gene list---on a single working page.
 All three produce the same four-panel, five-window
 figure at either region granularity (Section~\ref{sec:mapping}), and a
 reference map labelled by region name is available so that unfamiliar atlas
-parcels can be identified. Every map can be exported together with the table of
-values it was painted from, so a figure produced in VEGABrain and a statistic
-computed from its export cannot disagree. In gene-list mode the tests of
+parcels can be identified. In gene-list mode the tests of
 Section~\ref{sec:tests} add marks to the map and a developmental-stage panel
 beside it. We illustrate each mode with a case
 whose developmental behaviour is independently established, so that the maps
@@ -369,7 +390,7 @@ per region and developmental window, on a fixed colour scale bounded at 6, so
 that maps for different genes are directly comparable rather than each being
 auto-scaled to its own range. Oligodendrocyte and myelination markers
 (\emph{SOX10}, \emph{MBP}, \emph{PLP1}) should be low prenatally and rise
-sharply in the infant and adult windows as myelination proceeds;
+sharply in the child and adult windows as myelination proceeds;
 Figure~\ref{fig:gene} shows \emph{SOX10}.
 
 \subsection{Gene-set maps}
@@ -385,7 +406,7 @@ gives way to gliogenesis \citep{Rowitch2010}, so
 \texttt{GOBP\_ASTROCYTE\_DEVELOPMENT} should rise late in prenatal development.
 Its map peaks in the third trimester, in cortex and subcortex alike
 (Figure~\ref{fig:ontology}a). The composite score is informative here: the
-individual genes of the term are noisy across 42 sparsely sampled regions,
+individual genes of the term are noisy across 28 sparsely sampled parcels,
 whereas the ssGSEA summary of its 42 genes is not. Submitting those genes in
 gene-list mode (Supplementary Table~2) tests the reading directly (Figure~\ref{fig:ontology}b): against
 random genes of the same expression level, the term is higher in the third
@@ -430,10 +451,10 @@ second-trimester anterior cingulate cortex, mostly progenitor and glial genes
 (\emph{SOX2}, \emph{SOX3}, \emph{ATP1A2}). The stage test recovers the timing
 from the list alone: the list peaks in the second trimester (whole-brain
 $z = 3.4$; hippocampus, amygdala and striatum, $z = 3.6$ to $3.9$) and is lower
-in the third trimester and in infancy (Figure~\ref{fig:autism}b). The score
+in the third trimester and in the child window (Figure~\ref{fig:autism}b). The score
 test, the alternative mark for the same map, finds ten neocortical cells, in the
 second trimester (primary motor and somatosensory cortex, inferolateral temporal
-cortex), in infancy and in adulthood. The term is broader than a curated risk
+cortex), in the child window and in adulthood. The term is broader than a curated risk
 list---it includes syndromic genes such as the Bardet--Biedl ciliopathy
 family---so the effect sizes are moderate, yet the three tests agree on a
 prenatal, cortical reading.
@@ -452,7 +473,7 @@ and mid-fetal neocortex \citep{Camp2015,Gordon2021}, and the stage test places
 the signature there with no information from the experiment: it is higher in
 the first and second trimesters (whole-brain $z = 3.2$ and $4.9$), in every
 region in the second trimester (the cerebellum resting on one donor), and lower
-in the third trimester and in infancy ($z = -6.4$ and $-2.4$, both resting on
+in the third trimester and in the child window ($z = -6.4$ and $-2.4$, both resting on
 one donor at the whole-brain level; Figure~\ref{fig:organoid}b). The genes
 ethanol raised carry this result (whole-brain $z = 3.3$ and $4.8$ in the first
 two trimesters), while the 32 it lowered peak in no window. The score test marks
@@ -483,7 +504,7 @@ segmentation. Grey indicates regions with no BrainSpan sample in that window.}
 \caption{Ontology mode. (a) Composite ssGSEA score for
 \texttt{GOBP\_ASTROCYTE\_DEVELOPMENT} across development. The score
 summarises every gene in the term into one value per region and window; the same
-term can be viewed at micro granularity (42 atlas regions) or macro granularity
+term can be viewed at micro granularity (28 atlas parcels) or macro granularity
 (six anatomical groupings). (b) Developmental-stage test of the term's 42 genes
 (Section~\ref{sec:tests}), for the whole brain and the six PsychENCODE regions.
 Colour is $z$ against 4{,}000 expression-matched random gene sets, centred over
@@ -543,12 +564,12 @@ Expression source        & BrainSpan RNA-Seq, Gencode v10 RPKM, gene-summarised 
 Matrix dimensions        & 52{,}376 genes $\times$ 524 samples \\
 Transformation           & $\log_2(\mathrm{RPKM}+1)$; duplicate symbols dropped \\
 Developmental windows    & 5 (see below) \\
-\quad 1st trimester      & 5 donors \\
-\quad 2nd trimester      & 10 donors \\
-\quad 3rd trimester      & 5 donors \\
-\quad Infant             & 14 donors \\
-\quad Adult              & 8 donors \\
-Atlas regions (micro)    & 42 (Desikan--Killiany cortical + \texttt{aseg} subcortical) \\
+\quad 1st trimester      & 5 donors, 8--12 pcw \\
+\quad 2nd trimester      & 10 donors, 13--21 pcw \\
+\quad 3rd trimester      & 5 donors, 24--37 pcw \\
+\quad Child              & 14 donors, 4 months--15 years \\
+\quad Adult              & 8 donors, 18--40 years \\
+Atlas parcels (micro)    & 28 (21 Desikan--Killiany cortical + 7 \texttt{aseg}) \\
 Anatomical groups (macro)& 6 (frontal, parietal, temporal, occipital, subcortical, cerebellum) \\
 Views per map            & 4 (DK lateral, DK medial, \texttt{aseg} sagittal, \texttt{aseg} coronal) \\
 Gene sets scored         & 18{,}650 total \\
@@ -777,7 +798,8 @@ macro-scale grouping (frontal, parietal, temporal or occipital lobe,
 subcortical, or cerebellum). A parcel fed by two
 structures appears on two rows (thalamus, cerebellum), and the thalamus is
 listed under both \texttt{Thalamus} and \texttt{Thalamus Proper}, the names it
-carries in different FreeSurfer \texttt{aseg} versions.
+carries in different FreeSurfer \texttt{aseg} versions, so the table's 29
+region names denote 28 parcels.
 
 \textbf{Supplementary Table 2} (\texttt{S2\_signatures.xlsx}) gives every gene
 signature used in this work, one tab per signature: the lists of

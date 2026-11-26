@@ -38,7 +38,7 @@ OUT <- file.path(OUT, "offline")
 dir.create(OUT, showWarnings = FALSE)
 
 AGES <- c("1st trimester (n = 5)", "2nd trimester (n = 10)", "3rd trimester (n = 5)",
-          "Infant (n = 14)", "Adult (n = 8)")
+          "Child (n = 14)", "Adult (n = 8)")
 PAL  <- c("#1A318B", "#4F71BE", "#C2B4D6", "#D1498C", "#7A0845")
 
 message("loading data from ", ROOT)

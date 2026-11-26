@@ -88,7 +88,7 @@ age_mapping <- c(
   rep("1st trimester (n = 5)", 3),
   rep("2nd trimester (n = 10)", 5),
   rep("3rd trimester (n = 5)", 5),
-  rep("Infant (n = 14)", 10),
+  rep("Child (n = 14)", 10),
   rep("Adult (n = 8)", 8)
 )
 

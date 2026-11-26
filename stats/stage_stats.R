@@ -35,7 +35,7 @@
 #
 # Needs enrichment_stats.R and marker_stats.R sourced first.
 
-STAGE_WINDOWS <- c("1st trimester", "2nd trimester", "3rd trimester", "Infant", "Adult")
+STAGE_WINDOWS <- c("1st trimester", "2nd trimester", "3rd trimester", "Child", "Adult")
 STAGE_MIN_GENES <- 5
 # PsychENCODE's six regions (Li et al. 2018). MD and CBC stand for the thalamus
 # and cerebellum classes: in early windows BrainSpan sampled dorsal thalamus and

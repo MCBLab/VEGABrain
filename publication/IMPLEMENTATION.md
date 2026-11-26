@@ -108,8 +108,8 @@ repository, not estimated. Keep this table in sync if the pipeline changes.
 | Expression source | BrainSpan RNA-Seq, Gencode v10 RPKM, gene-summarised | `ETL.qmd`, `genes_matrix_csv/` |
 | Matrix dimensions | 52,376 genes × 524 samples | `wc -l genes_matrix_csv/{rows,columns}_metadata.csv` |
 | Transformation | `log2(RPKM + 1)`, duplicate symbols dropped | `preparaDados.R` |
-| Developmental windows | 5; n = 5, 10, 5, 14, 8 donors | `preparaDados.R` (`age_mapping`) |
-| Atlas regions (micro) | **41** | `n_distinct(mapeamento_regioes.csv$region)`, and `GET /data_brain?gene=SOX10` returns 41 regions × 5 windows = 169 rows. `ontologia_micro.rds` still says 42 — it is stale; see §5 |
+| Developmental windows | 5; n = 5, 10, 5, 14, 8 donors; 8–12 pcw, 13–21 pcw, 24–37 pcw, 4 mo–15 y ("Child", named "Infant" until 2026-11-26: 5 donors < 2 y, 4 aged 2–4 y, 5 aged 8–15 y), 18–40 y (one donor per age, 4 M / 4 F); no donor aged 15–18 y | `preparaDados.R` (`age_mapping`) joined to `genes_matrix_csv/columns_metadata.csv` |
+| Atlas parcels (micro) | **28** (21 DK + 7 aseg); 22 of 26 BrainSpan structures | `n_distinct(mapeamento_regioes.csv$region)` = 29 names, minus the `Thalamus`/`Thalamus Proper` alias; `GET /data_brain?gene=SOX10&scale=micro` returns the same 29 names locally and on the live API (2026-11-26). Unmapped BrainSpan structures: MGE, LGE, CGE, upper rhombic lip |
 | Anatomical groups (macro) | 6 | `mapeamento_regioes.csv`, column `macro_regions` |
 | Views per map | 4 (DK lateral, DK medial, aseg sagittal, aseg coronal_1) | `plumber.R:build_brain_grid` |
 | Gene sets scored | 18,650 | `length(readRDS("genesets_list.rds"))` |
@@ -313,11 +313,11 @@ Everything below is deliberately unfinished in the current draft.
       (`bankssts` → `banks of superior temporal sulcus`, `corpus callosum`
       dropped). Until then the served maps and the committed `.rds` disagree on
       those two parcels, and `make_figures.R` works around it.
-- [ ] **`main.tex` says 42 atlas regions in four places (lines 219, 441, 475,
-      557); the deployed API serves 41.** The 42nd is `corpus callosum`, dropped
-      by the last mapping fix — the three cerebellum samples that fed it are now
-      mapped to `Cerebellum` only. The stale `ontologia_micro.rds` is where the
-      42 came from. Fix the four occurrences when the `.rds` objects are rebuilt.
+- [x] **Region count fixed (2026-11-26).** `main.tex` said 42 atlas regions in five
+      places; the mapping has 22 structures on 28 parcels (29 names, thalamus
+      listed twice). Flagged by a co-author reading the code. Section 2.3 now
+      names the 21 DK + 7 aseg parcels, the 4 unmapped BrainSpan structures
+      and the two-structure thalamus/cerebellum parcels.
 - [ ] Reconcile the map and the CSV export, or soften the claim in
       Section 3 ("the CSV contains exactly the values that were painted, so a
       figure produced in VEGABrain and a statistic computed from its export

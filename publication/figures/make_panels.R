@@ -37,7 +37,7 @@ suppressMessages(suppressWarnings(source("plumber.R", local = globalenv())))
 PAL    <- c("#1A318B", "#4F71BE", "#C2B4D6", "#D1498C", "#7A0845")
 REGION <- c(brain = "Whole brain", NCX = "NCX", HIP = "HIP", AMY = "AMY", STR = "STR", MD = "MD", CBC = "CBC")
 WINDOW <- c("1st trimester" = "1st", "2nd trimester" = "2nd", "3rd trimester" = "3rd",
-            Infant = "Infant", Adult = "Adult")
+            Child = "Child", Adult = "Adult")
 
 # ---- developmental-stage panel ------------------------------------------
 # One list: rows = whole brain + the six PsychENCODE regions, columns = the
